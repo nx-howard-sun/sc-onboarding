@@ -1,12 +1,12 @@
 # ByteSized Security Central (Go)
 
-Milestone 1 implementation using:
+Implementation using:
 - Go
 - go-kit (service/endpoint/transport layering)
 - Ent (ORM + schema migration)
 - PostgreSQL
 
-## Beginner-Friendly Architecture
+## Architecture
 
 This project uses a layered design so each part has one responsibility:
 
@@ -34,10 +34,10 @@ Design notes are documented in `docs/architecture.md`.
 5. Service layer:
    - fetches audit definition from repository
    - creates an `audit_run` row with `running`
-   - executes stored SQL query
-   - compares `actual` vs `expected` based on expected type
+   - executes all query rules in `queries`
+   - compares each query's `actual` vs `expected` based on expected type
    - updates run status to `passed`, `failed`, or `error`
-   - creates an `issue` if status is `failed`
+   - creates an `issue` per failed query (with `query_name`)
 6. Transport encodes final response as JSON.
 
 ## Setup Instructions
@@ -83,37 +83,11 @@ Server starts on `http://localhost:8080` by default (or `PORT` env var if set).
 
 ### 6) (Optional) Seed example table for demo audit
 
-If you want to test the sample `vm_inventory` audit query:
-
-```sql
-CREATE TABLE IF NOT EXISTS vm_inventory (
-  id SERIAL PRIMARY KEY,
-  memory INT NOT NULL
-);
-
-INSERT INTO vm_inventory(memory) VALUES (20), (100);
-```
-
 The service auto-creates tables from Ent schemas on startup, including:
 - `audits`
 - `audit_runs`
 - `issues`
 - `vm_inventory`
-
-## Verify with Tests
-
-Run all tests:
-
-```bash
-go test ./...
-```
-
-Run key suites only:
-
-```bash
-go test ./internal/service -v
-go test ./internal/transport -v
-```
 
 ## Run APIs Manually
 
@@ -128,15 +102,25 @@ go test ./internal/transport -v
 
 All responses are JSON.
 
-### Sample request: create audit
+### Sample request: create audit (multi-query)
 
 ```bash
 curl -X POST http://localhost:8080/audits \
   -H "Content-Type: application/json" \
   -d '{
     "name":"Memory Compliance",
-    "sql_query":"SELECT count(*) FROM vm_inventory WHERE memory > 50",
-    "expected_result":{"type":"int","value":"0"}
+    "queries":[
+      {
+        "name":"vms_over_50_memory",
+        "sql_query":"SELECT count(*) FROM vm_inventory WHERE memory > 50",
+        "expected_result":{"type":"int","value":"0"}
+      },
+      {
+        "name":"powered_off_vms",
+        "sql_query":"SELECT count(*) FROM vm_inventory WHERE power_state = '\''off'\''",
+        "expected_result":{"type":"int","value":"0"}
+      }
+    ]
   }'
 ```
 
