@@ -18,6 +18,7 @@ func (Issue) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("audit_id"),
 		field.Int("audit_run_id"),
+		field.String("query_name").Optional(),
 		field.String("expected_value").NotEmpty(),
 		field.String("actual_value").NotEmpty(),
 		field.String("description").NotEmpty(),

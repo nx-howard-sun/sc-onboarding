@@ -65,6 +65,11 @@ func AuditRunID(v int) predicate.Issue {
 	return predicate.Issue(sql.FieldEQ(FieldAuditRunID, v))
 }
 
+// QueryName applies equality check predicate on the "query_name" field. It's identical to QueryNameEQ.
+func QueryName(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldEQ(FieldQueryName, v))
+}
+
 // ExpectedValue applies equality check predicate on the "expected_value" field. It's identical to ExpectedValueEQ.
 func ExpectedValue(v string) predicate.Issue {
 	return predicate.Issue(sql.FieldEQ(FieldExpectedValue, v))
@@ -128,6 +133,81 @@ func AuditRunIDIn(vs ...int) predicate.Issue {
 // AuditRunIDNotIn applies the NotIn predicate on the "audit_run_id" field.
 func AuditRunIDNotIn(vs ...int) predicate.Issue {
 	return predicate.Issue(sql.FieldNotIn(FieldAuditRunID, vs...))
+}
+
+// QueryNameEQ applies the EQ predicate on the "query_name" field.
+func QueryNameEQ(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldEQ(FieldQueryName, v))
+}
+
+// QueryNameNEQ applies the NEQ predicate on the "query_name" field.
+func QueryNameNEQ(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldNEQ(FieldQueryName, v))
+}
+
+// QueryNameIn applies the In predicate on the "query_name" field.
+func QueryNameIn(vs ...string) predicate.Issue {
+	return predicate.Issue(sql.FieldIn(FieldQueryName, vs...))
+}
+
+// QueryNameNotIn applies the NotIn predicate on the "query_name" field.
+func QueryNameNotIn(vs ...string) predicate.Issue {
+	return predicate.Issue(sql.FieldNotIn(FieldQueryName, vs...))
+}
+
+// QueryNameGT applies the GT predicate on the "query_name" field.
+func QueryNameGT(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldGT(FieldQueryName, v))
+}
+
+// QueryNameGTE applies the GTE predicate on the "query_name" field.
+func QueryNameGTE(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldGTE(FieldQueryName, v))
+}
+
+// QueryNameLT applies the LT predicate on the "query_name" field.
+func QueryNameLT(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldLT(FieldQueryName, v))
+}
+
+// QueryNameLTE applies the LTE predicate on the "query_name" field.
+func QueryNameLTE(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldLTE(FieldQueryName, v))
+}
+
+// QueryNameContains applies the Contains predicate on the "query_name" field.
+func QueryNameContains(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldContains(FieldQueryName, v))
+}
+
+// QueryNameHasPrefix applies the HasPrefix predicate on the "query_name" field.
+func QueryNameHasPrefix(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldHasPrefix(FieldQueryName, v))
+}
+
+// QueryNameHasSuffix applies the HasSuffix predicate on the "query_name" field.
+func QueryNameHasSuffix(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldHasSuffix(FieldQueryName, v))
+}
+
+// QueryNameIsNil applies the IsNil predicate on the "query_name" field.
+func QueryNameIsNil() predicate.Issue {
+	return predicate.Issue(sql.FieldIsNull(FieldQueryName))
+}
+
+// QueryNameNotNil applies the NotNil predicate on the "query_name" field.
+func QueryNameNotNil() predicate.Issue {
+	return predicate.Issue(sql.FieldNotNull(FieldQueryName))
+}
+
+// QueryNameEqualFold applies the EqualFold predicate on the "query_name" field.
+func QueryNameEqualFold(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldEqualFold(FieldQueryName, v))
+}
+
+// QueryNameContainsFold applies the ContainsFold predicate on the "query_name" field.
+func QueryNameContainsFold(v string) predicate.Issue {
+	return predicate.Issue(sql.FieldContainsFold(FieldQueryName, v))
 }
 
 // ExpectedValueEQ applies the EQ predicate on the "expected_value" field.

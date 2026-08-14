@@ -58,6 +58,26 @@ func (_u *IssueUpdate) SetNillableAuditRunID(v *int) *IssueUpdate {
 	return _u
 }
 
+// SetQueryName sets the "query_name" field.
+func (_u *IssueUpdate) SetQueryName(v string) *IssueUpdate {
+	_u.mutation.SetQueryName(v)
+	return _u
+}
+
+// SetNillableQueryName sets the "query_name" field if the given value is not nil.
+func (_u *IssueUpdate) SetNillableQueryName(v *string) *IssueUpdate {
+	if v != nil {
+		_u.SetQueryName(*v)
+	}
+	return _u
+}
+
+// ClearQueryName clears the value of the "query_name" field.
+func (_u *IssueUpdate) ClearQueryName() *IssueUpdate {
+	_u.mutation.ClearQueryName()
+	return _u
+}
+
 // SetExpectedValue sets the "expected_value" field.
 func (_u *IssueUpdate) SetExpectedValue(v string) *IssueUpdate {
 	_u.mutation.SetExpectedValue(v)
@@ -221,6 +241,12 @@ func (_u *IssueUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			}
 		}
 	}
+	if value, ok := _u.mutation.QueryName(); ok {
+		_spec.SetField(issue.FieldQueryName, field.TypeString, value)
+	}
+	if _u.mutation.QueryNameCleared() {
+		_spec.ClearField(issue.FieldQueryName, field.TypeString)
+	}
 	if value, ok := _u.mutation.ExpectedValue(); ok {
 		_spec.SetField(issue.FieldExpectedValue, field.TypeString, value)
 	}
@@ -339,6 +365,26 @@ func (_u *IssueUpdateOne) SetNillableAuditRunID(v *int) *IssueUpdateOne {
 	if v != nil {
 		_u.SetAuditRunID(*v)
 	}
+	return _u
+}
+
+// SetQueryName sets the "query_name" field.
+func (_u *IssueUpdateOne) SetQueryName(v string) *IssueUpdateOne {
+	_u.mutation.SetQueryName(v)
+	return _u
+}
+
+// SetNillableQueryName sets the "query_name" field if the given value is not nil.
+func (_u *IssueUpdateOne) SetNillableQueryName(v *string) *IssueUpdateOne {
+	if v != nil {
+		_u.SetQueryName(*v)
+	}
+	return _u
+}
+
+// ClearQueryName clears the value of the "query_name" field.
+func (_u *IssueUpdateOne) ClearQueryName() *IssueUpdateOne {
+	_u.mutation.ClearQueryName()
 	return _u
 }
 
@@ -534,6 +580,12 @@ func (_u *IssueUpdateOne) sqlSave(ctx context.Context) (_node *Issue, err error)
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.QueryName(); ok {
+		_spec.SetField(issue.FieldQueryName, field.TypeString, value)
+	}
+	if _u.mutation.QueryNameCleared() {
+		_spec.ClearField(issue.FieldQueryName, field.TypeString)
 	}
 	if value, ok := _u.mutation.ExpectedValue(); ok {
 		_spec.SetField(issue.FieldExpectedValue, field.TypeString, value)

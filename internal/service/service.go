@@ -24,9 +24,8 @@ type Service interface {
 }
 
 type CreateAuditRequest struct {
-	Name           string
-	SQLQuery       string
-	ExpectedResult model.ExpectedResult
+	Name    string
+	Queries []model.QueryRule
 }
 
 type RunAuditResponse struct {
@@ -46,16 +45,24 @@ func (s *securityCentralService) CreateAudit(ctx context.Context, req CreateAudi
 	if strings.TrimSpace(req.Name) == "" {
 		return nil, errors.New("name is required")
 	}
-	if err := validateSQLQuery(req.SQLQuery); err != nil {
-		return nil, err
+	if len(req.Queries) == 0 {
+		return nil, errors.New("queries must have at least one query rule")
 	}
-	if err := validateExpectedType(req.ExpectedResult.Type); err != nil {
-		return nil, err
+	for i, q := range req.Queries {
+		if strings.TrimSpace(q.Name) == "" {
+			return nil, fmt.Errorf("queries[%d].name is required", i)
+		}
+		if err := validateSQLQuery(q.SQLQuery); err != nil {
+			return nil, fmt.Errorf("queries[%d].sql_query invalid: %w", i, err)
+		}
+		if err := validateExpectedType(q.ExpectedResult.Type); err != nil {
+			return nil, fmt.Errorf("queries[%d].expected_result.type invalid: %w", i, err)
+		}
+		if strings.TrimSpace(q.ExpectedResult.Value) == "" {
+			return nil, fmt.Errorf("queries[%d].expected_result.value is required", i)
+		}
 	}
-	if strings.TrimSpace(req.ExpectedResult.Value) == "" {
-		return nil, errors.New("expected_result.value is required")
-	}
-	return s.repo.CreateAudit(ctx, req.Name, req.SQLQuery, req.ExpectedResult.Type, req.ExpectedResult.Value)
+	return s.repo.CreateAudit(ctx, req.Name, req.Queries)
 }
 
 func (s *securityCentralService) GetAudit(ctx context.Context, id int) (*model.Audit, error) {
@@ -73,36 +80,46 @@ func (s *securityCentralService) RunAudit(ctx context.Context, auditID int) (*Ru
 		return nil, err
 	}
 
-	actualValue, queryErr := s.repo.RunScalarQuery(ctx, a.SQLQuery)
-	if queryErr != nil {
-		msg := queryErr.Error()
-		updatedRun, updateErr := s.repo.UpdateAuditRunResult(ctx, run.ID, "error", nil, &msg)
-		if updateErr != nil {
-			return nil, updateErr
+	failCount := 0
+	actualPairs := make([]string, 0, len(a.SQLQuery))
+	var firstIssue *model.Issue
+
+	for _, q := range a.SQLQuery {
+		actualValue, queryErr := s.repo.RunScalarQuery(ctx, q.SQLQuery)
+		if queryErr != nil {
+			msg := fmt.Sprintf("query %q failed: %s", q.Name, queryErr.Error())
+			updatedRun, updateErr := s.repo.UpdateAuditRunResult(ctx, run.ID, "error", nil, &msg)
+			if updateErr != nil {
+				return nil, updateErr
+			}
+			return &RunAuditResponse{Run: updatedRun}, nil
 		}
-		return &RunAuditResponse{Run: updatedRun}, nil
+		actualPairs = append(actualPairs, fmt.Sprintf("%s=%s", q.Name, actualValue))
+		if !valuesEqualByType(q.ExpectedResult.Type, q.ExpectedResult.Value, actualValue) {
+			failCount++
+			description := fmt.Sprintf("Audit %q query %q deviated: expected=%s actual=%s", a.Name, q.Name, q.ExpectedResult.Value, actualValue)
+			issue, issueErr := s.repo.CreateIssue(ctx, a.ID, run.ID, q.Name, q.ExpectedResult.Value, actualValue, description)
+			if issueErr != nil {
+				return nil, issueErr
+			}
+			if firstIssue == nil {
+				firstIssue = issue
+			}
+		}
 	}
 
-	status := "failed"
-	if valuesEqualByType(a.ExpectedResult.Type, a.ExpectedResult.Value, actualValue) {
-		status = "passed"
+	status := "passed"
+	if failCount > 0 {
+		status = "failed"
 	}
+	actualSummary := strings.Join(actualPairs, ", ")
 
-	updatedRun, err := s.repo.UpdateAuditRunResult(ctx, run.ID, status, &actualValue, nil)
+	updatedRun, err := s.repo.UpdateAuditRunResult(ctx, run.ID, status, &actualSummary, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &RunAuditResponse{Run: updatedRun}
-	if status == "failed" {
-		description := fmt.Sprintf("Audit %q deviated: expected=%s actual=%s", a.Name, a.ExpectedResult.Value, actualValue)
-		issue, issueErr := s.repo.CreateIssue(ctx, a.ID, run.ID, a.ExpectedResult.Value, actualValue, description)
-		if issueErr != nil {
-			return nil, issueErr
-		}
-		resp.Issue = issue
-	}
-	return resp, nil
+	return &RunAuditResponse{Run: updatedRun, Issue: firstIssue}, nil
 }
 
 func (s *securityCentralService) GetRunStatus(ctx context.Context, auditID, runID int) (*model.AuditRun, error) {

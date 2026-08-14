@@ -10,10 +10,12 @@ import (
 	"security-central/ent/auditrun"
 	"security-central/ent/issue"
 	"security-central/ent/predicate"
+	"security-central/internal/model"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 )
 
@@ -44,45 +46,15 @@ func (_u *AuditUpdate) SetNillableName(v *string) *AuditUpdate {
 	return _u
 }
 
-// SetSQLQuery sets the "sql_query" field.
-func (_u *AuditUpdate) SetSQLQuery(v string) *AuditUpdate {
-	_u.mutation.SetSQLQuery(v)
+// SetQueries sets the "queries" field.
+func (_u *AuditUpdate) SetQueries(v []model.QueryRule) *AuditUpdate {
+	_u.mutation.SetQueries(v)
 	return _u
 }
 
-// SetNillableSQLQuery sets the "sql_query" field if the given value is not nil.
-func (_u *AuditUpdate) SetNillableSQLQuery(v *string) *AuditUpdate {
-	if v != nil {
-		_u.SetSQLQuery(*v)
-	}
-	return _u
-}
-
-// SetExpectedType sets the "expected_type" field.
-func (_u *AuditUpdate) SetExpectedType(v string) *AuditUpdate {
-	_u.mutation.SetExpectedType(v)
-	return _u
-}
-
-// SetNillableExpectedType sets the "expected_type" field if the given value is not nil.
-func (_u *AuditUpdate) SetNillableExpectedType(v *string) *AuditUpdate {
-	if v != nil {
-		_u.SetExpectedType(*v)
-	}
-	return _u
-}
-
-// SetExpectedValue sets the "expected_value" field.
-func (_u *AuditUpdate) SetExpectedValue(v string) *AuditUpdate {
-	_u.mutation.SetExpectedValue(v)
-	return _u
-}
-
-// SetNillableExpectedValue sets the "expected_value" field if the given value is not nil.
-func (_u *AuditUpdate) SetNillableExpectedValue(v *string) *AuditUpdate {
-	if v != nil {
-		_u.SetExpectedValue(*v)
-	}
+// AppendQueries appends value to the "queries" field.
+func (_u *AuditUpdate) AppendQueries(v []model.QueryRule) *AuditUpdate {
+	_u.mutation.AppendQueries(v)
 	return _u
 }
 
@@ -226,21 +198,6 @@ func (_u *AuditUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Audit.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.SQLQuery(); ok {
-		if err := audit.SQLQueryValidator(v); err != nil {
-			return &ValidationError{Name: "sql_query", err: fmt.Errorf(`ent: validator failed for field "Audit.sql_query": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.ExpectedType(); ok {
-		if err := audit.ExpectedTypeValidator(v); err != nil {
-			return &ValidationError{Name: "expected_type", err: fmt.Errorf(`ent: validator failed for field "Audit.expected_type": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.ExpectedValue(); ok {
-		if err := audit.ExpectedValueValidator(v); err != nil {
-			return &ValidationError{Name: "expected_value", err: fmt.Errorf(`ent: validator failed for field "Audit.expected_value": %w`, err)}
-		}
-	}
 	return nil
 }
 
@@ -259,14 +216,13 @@ func (_u *AuditUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(audit.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.SQLQuery(); ok {
-		_spec.SetField(audit.FieldSQLQuery, field.TypeString, value)
+	if value, ok := _u.mutation.Queries(); ok {
+		_spec.SetField(audit.FieldQueries, field.TypeJSON, value)
 	}
-	if value, ok := _u.mutation.ExpectedType(); ok {
-		_spec.SetField(audit.FieldExpectedType, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.ExpectedValue(); ok {
-		_spec.SetField(audit.FieldExpectedValue, field.TypeString, value)
+	if value, ok := _u.mutation.AppendedQueries(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, audit.FieldQueries, value)
+		})
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(audit.FieldCreatedAt, field.TypeTime, value)
@@ -398,45 +354,15 @@ func (_u *AuditUpdateOne) SetNillableName(v *string) *AuditUpdateOne {
 	return _u
 }
 
-// SetSQLQuery sets the "sql_query" field.
-func (_u *AuditUpdateOne) SetSQLQuery(v string) *AuditUpdateOne {
-	_u.mutation.SetSQLQuery(v)
+// SetQueries sets the "queries" field.
+func (_u *AuditUpdateOne) SetQueries(v []model.QueryRule) *AuditUpdateOne {
+	_u.mutation.SetQueries(v)
 	return _u
 }
 
-// SetNillableSQLQuery sets the "sql_query" field if the given value is not nil.
-func (_u *AuditUpdateOne) SetNillableSQLQuery(v *string) *AuditUpdateOne {
-	if v != nil {
-		_u.SetSQLQuery(*v)
-	}
-	return _u
-}
-
-// SetExpectedType sets the "expected_type" field.
-func (_u *AuditUpdateOne) SetExpectedType(v string) *AuditUpdateOne {
-	_u.mutation.SetExpectedType(v)
-	return _u
-}
-
-// SetNillableExpectedType sets the "expected_type" field if the given value is not nil.
-func (_u *AuditUpdateOne) SetNillableExpectedType(v *string) *AuditUpdateOne {
-	if v != nil {
-		_u.SetExpectedType(*v)
-	}
-	return _u
-}
-
-// SetExpectedValue sets the "expected_value" field.
-func (_u *AuditUpdateOne) SetExpectedValue(v string) *AuditUpdateOne {
-	_u.mutation.SetExpectedValue(v)
-	return _u
-}
-
-// SetNillableExpectedValue sets the "expected_value" field if the given value is not nil.
-func (_u *AuditUpdateOne) SetNillableExpectedValue(v *string) *AuditUpdateOne {
-	if v != nil {
-		_u.SetExpectedValue(*v)
-	}
+// AppendQueries appends value to the "queries" field.
+func (_u *AuditUpdateOne) AppendQueries(v []model.QueryRule) *AuditUpdateOne {
+	_u.mutation.AppendQueries(v)
 	return _u
 }
 
@@ -593,21 +519,6 @@ func (_u *AuditUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Audit.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.SQLQuery(); ok {
-		if err := audit.SQLQueryValidator(v); err != nil {
-			return &ValidationError{Name: "sql_query", err: fmt.Errorf(`ent: validator failed for field "Audit.sql_query": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.ExpectedType(); ok {
-		if err := audit.ExpectedTypeValidator(v); err != nil {
-			return &ValidationError{Name: "expected_type", err: fmt.Errorf(`ent: validator failed for field "Audit.expected_type": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.ExpectedValue(); ok {
-		if err := audit.ExpectedValueValidator(v); err != nil {
-			return &ValidationError{Name: "expected_value", err: fmt.Errorf(`ent: validator failed for field "Audit.expected_value": %w`, err)}
-		}
-	}
 	return nil
 }
 
@@ -643,14 +554,13 @@ func (_u *AuditUpdateOne) sqlSave(ctx context.Context) (_node *Audit, err error)
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(audit.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.SQLQuery(); ok {
-		_spec.SetField(audit.FieldSQLQuery, field.TypeString, value)
+	if value, ok := _u.mutation.Queries(); ok {
+		_spec.SetField(audit.FieldQueries, field.TypeJSON, value)
 	}
-	if value, ok := _u.mutation.ExpectedType(); ok {
-		_spec.SetField(audit.FieldExpectedType, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.ExpectedValue(); ok {
-		_spec.SetField(audit.FieldExpectedValue, field.TypeString, value)
+	if value, ok := _u.mutation.AppendedQueries(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, audit.FieldQueries, value)
+		})
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(audit.FieldCreatedAt, field.TypeTime, value)

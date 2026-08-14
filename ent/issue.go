@@ -23,6 +23,8 @@ type Issue struct {
 	AuditID int `json:"audit_id,omitempty"`
 	// AuditRunID holds the value of the "audit_run_id" field.
 	AuditRunID int `json:"audit_run_id,omitempty"`
+	// QueryName holds the value of the "query_name" field.
+	QueryName string `json:"query_name,omitempty"`
 	// ExpectedValue holds the value of the "expected_value" field.
 	ExpectedValue string `json:"expected_value,omitempty"`
 	// ActualValue holds the value of the "actual_value" field.
@@ -79,7 +81,7 @@ func (*Issue) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case issue.FieldID, issue.FieldAuditID, issue.FieldAuditRunID:
 			values[i] = new(sql.NullInt64)
-		case issue.FieldExpectedValue, issue.FieldActualValue, issue.FieldDescription:
+		case issue.FieldQueryName, issue.FieldExpectedValue, issue.FieldActualValue, issue.FieldDescription:
 			values[i] = new(sql.NullString)
 		case issue.FieldCreatedAt, issue.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -115,6 +117,12 @@ func (_m *Issue) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field audit_run_id", values[i])
 			} else if value.Valid {
 				_m.AuditRunID = int(value.Int64)
+			}
+		case issue.FieldQueryName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field query_name", values[i])
+			} else if value.Valid {
+				_m.QueryName = value.String
 			}
 		case issue.FieldExpectedValue:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -197,6 +205,9 @@ func (_m *Issue) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("audit_run_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AuditRunID))
+	builder.WriteString(", ")
+	builder.WriteString("query_name=")
+	builder.WriteString(_m.QueryName)
 	builder.WriteString(", ")
 	builder.WriteString("expected_value=")
 	builder.WriteString(_m.ExpectedValue)

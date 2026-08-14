@@ -26,9 +26,7 @@ Request flow:
 ### `audits`
 - `id` (int, PK)
 - `name` (string)
-- `sql_query` (string)
-- `expected_type` (string enum-like: `int`, `string`, `bool`, `float`)
-- `expected_value` (string)
+- `queries` (JSON array of query rules: `name`, `sql_query`, `expected_result{type,value}`)
 - `created_at`, `updated_at`
 
 ### `audit_runs`
@@ -43,6 +41,7 @@ Request flow:
 - `id` (int, PK)
 - `audit_id` (FK -> audits)
 - `audit_run_id` (FK -> audit_runs)
+- `query_name` (string, optional)
 - `expected_value` (string)
 - `actual_value` (string)
 - `description` (string)
@@ -52,7 +51,7 @@ Request flow:
 - Only `SELECT` queries are allowed for audit SQL.
 - Single statement only (no semicolon-delimited multi-statements).
 - Query result is expected to be a single scalar value (1 row, 1 column).
-- Evaluation is type-aware based on `expected_type`.
+- Evaluation is type-aware based on each query's `expected_result.type`.
 
 ## API Mapping (Milestone 1)
 - `POST /audits` -> create audit
@@ -63,7 +62,7 @@ Request flow:
 - `GET /issues/{id}` -> issue details
 
 ## Extendability by Milestone
-- Milestone 2: split `sql_query` into child table `audit_queries` (1:N) and add evaluator strategy.
+- Milestone 2: move `queries` JSON into normalized `audit_queries` table if you need stronger query-level indexing/history.
 - Milestone 3: move run execution behind gRPC worker; keep service contract stable.
 - Milestone 4: add `policies`, `policy_audits`, and policy run aggregate status.
 - Milestone 5: add auth middleware in transport layer and role checks per endpoint.

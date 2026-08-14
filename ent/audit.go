@@ -3,8 +3,10 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"security-central/ent/audit"
+	"security-central/internal/model"
 	"strings"
 	"time"
 
@@ -19,12 +21,8 @@ type Audit struct {
 	ID int `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
-	// SQLQuery holds the value of the "sql_query" field.
-	SQLQuery string `json:"sql_query,omitempty"`
-	// ExpectedType holds the value of the "expected_type" field.
-	ExpectedType string `json:"expected_type,omitempty"`
-	// ExpectedValue holds the value of the "expected_value" field.
-	ExpectedValue string `json:"expected_value,omitempty"`
+	// List of SQL query rules executed during this audit
+	Queries []model.QueryRule `json:"queries,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -69,9 +67,11 @@ func (*Audit) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case audit.FieldQueries:
+			values[i] = new([]byte)
 		case audit.FieldID:
 			values[i] = new(sql.NullInt64)
-		case audit.FieldName, audit.FieldSQLQuery, audit.FieldExpectedType, audit.FieldExpectedValue:
+		case audit.FieldName:
 			values[i] = new(sql.NullString)
 		case audit.FieldCreatedAt, audit.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -102,23 +102,13 @@ func (_m *Audit) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Name = value.String
 			}
-		case audit.FieldSQLQuery:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field sql_query", values[i])
-			} else if value.Valid {
-				_m.SQLQuery = value.String
-			}
-		case audit.FieldExpectedType:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field expected_type", values[i])
-			} else if value.Valid {
-				_m.ExpectedType = value.String
-			}
-		case audit.FieldExpectedValue:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field expected_value", values[i])
-			} else if value.Valid {
-				_m.ExpectedValue = value.String
+		case audit.FieldQueries:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field queries", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Queries); err != nil {
+					return fmt.Errorf("unmarshal field queries: %w", err)
+				}
 			}
 		case audit.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -181,14 +171,8 @@ func (_m *Audit) String() string {
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
-	builder.WriteString("sql_query=")
-	builder.WriteString(_m.SQLQuery)
-	builder.WriteString(", ")
-	builder.WriteString("expected_type=")
-	builder.WriteString(_m.ExpectedType)
-	builder.WriteString(", ")
-	builder.WriteString("expected_value=")
-	builder.WriteString(_m.ExpectedValue)
+	builder.WriteString("queries=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Queries))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

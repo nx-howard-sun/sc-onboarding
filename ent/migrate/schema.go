@@ -13,9 +13,7 @@ var (
 	AuditsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString},
-		{Name: "sql_query", Type: field.TypeString},
-		{Name: "expected_type", Type: field.TypeString},
-		{Name: "expected_value", Type: field.TypeString},
+		{Name: "queries", Type: field.TypeJSON},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 	}
@@ -54,6 +52,7 @@ var (
 	// IssuesColumns holds the columns for the "issues" table.
 	IssuesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "query_name", Type: field.TypeString, Nullable: true},
 		{Name: "expected_value", Type: field.TypeString},
 		{Name: "actual_value", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString},
@@ -70,13 +69,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "issues_audits_issues",
-				Columns:    []*schema.Column{IssuesColumns[6]},
+				Columns:    []*schema.Column{IssuesColumns[7]},
 				RefColumns: []*schema.Column{AuditsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "issues_audit_runs_issues",
-				Columns:    []*schema.Column{IssuesColumns[7]},
+				Columns:    []*schema.Column{IssuesColumns[8]},
 				RefColumns: []*schema.Column{AuditRunsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

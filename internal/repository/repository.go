@@ -14,12 +14,12 @@ import (
 )
 
 type Repository interface {
-	CreateAudit(ctx context.Context, name, sqlQuery, expectedType, expectedValue string) (*model.Audit, error)
+	CreateAudit(ctx context.Context, name string, queries []model.QueryRule) (*model.Audit, error)
 	GetAudit(ctx context.Context, id int) (*model.Audit, error)
 	CreateAuditRun(ctx context.Context, auditID int) (*model.AuditRun, error)
 	UpdateAuditRunResult(ctx context.Context, runID int, status string, actualValue *string, errMsg *string) (*model.AuditRun, error)
 	GetAuditRun(ctx context.Context, auditID, runID int) (*model.AuditRun, error)
-	CreateIssue(ctx context.Context, auditID, runID int, expectedValue, actualValue, description string) (*model.Issue, error)
+	CreateIssue(ctx context.Context, auditID, runID int, queryName, expectedValue, actualValue, description string) (*model.Issue, error)
 	ListIssues(ctx context.Context, page, pageSize int) ([]model.Issue, error)
 	GetIssue(ctx context.Context, id int) (*model.Issue, error)
 	RunScalarQuery(ctx context.Context, query string) (string, error)
@@ -34,12 +34,10 @@ func NewEntRepository(client *ent.Client, sqlDB *sql.DB) *EntRepository {
 	return &EntRepository{client: client, sqlDB: sqlDB}
 }
 
-func (r *EntRepository) CreateAudit(ctx context.Context, name, sqlQuery, expectedType, expectedValue string) (*model.Audit, error) {
+func (r *EntRepository) CreateAudit(ctx context.Context, name string, queries []model.QueryRule) (*model.Audit, error) {
 	row, err := r.client.Audit.Create().
 		SetName(name).
-		SetSQLQuery(sqlQuery).
-		SetExpectedType(expectedType).
-		SetExpectedValue(expectedValue).
+		SetQueries(queries).
 		Save(ctx)
 	if err != nil {
 		return nil, err
@@ -91,10 +89,11 @@ func (r *EntRepository) GetAuditRun(ctx context.Context, auditID, runID int) (*m
 	return toAuditRun(row), nil
 }
 
-func (r *EntRepository) CreateIssue(ctx context.Context, auditID, runID int, expectedValue, actualValue, description string) (*model.Issue, error) {
+func (r *EntRepository) CreateIssue(ctx context.Context, auditID, runID int, queryName, expectedValue, actualValue, description string) (*model.Issue, error) {
 	row, err := r.client.Issue.Create().
 		SetAuditID(auditID).
 		SetAuditRunID(runID).
+		SetQueryName(queryName).
 		SetExpectedValue(expectedValue).
 		SetActualValue(actualValue).
 		SetDescription(description).
@@ -144,13 +143,9 @@ func (r *EntRepository) RunScalarQuery(ctx context.Context, query string) (strin
 
 func toAudit(a *ent.Audit) *model.Audit {
 	return &model.Audit{
-		ID:       a.ID,
-		Name:     a.Name,
-		SQLQuery: a.SQLQuery,
-		ExpectedResult: model.ExpectedResult{
-			Type:  a.ExpectedType,
-			Value: a.ExpectedValue,
-		},
+		ID:        a.ID,
+		Name:      a.Name,
+		SQLQuery:  a.Queries,
 		CreatedAt: a.CreatedAt,
 		UpdatedAt: a.UpdatedAt,
 	}
@@ -173,6 +168,7 @@ func toIssue(i *ent.Issue) *model.Issue {
 		ID:            i.ID,
 		AuditID:       i.AuditID,
 		AuditRunID:    i.AuditRunID,
+		QueryName:     i.QueryName,
 		ExpectedValue: i.ExpectedValue,
 		ActualValue:   i.ActualValue,
 		Description:   i.Description,

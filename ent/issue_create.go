@@ -34,6 +34,20 @@ func (_c *IssueCreate) SetAuditRunID(v int) *IssueCreate {
 	return _c
 }
 
+// SetQueryName sets the "query_name" field.
+func (_c *IssueCreate) SetQueryName(v string) *IssueCreate {
+	_c.mutation.SetQueryName(v)
+	return _c
+}
+
+// SetNillableQueryName sets the "query_name" field if the given value is not nil.
+func (_c *IssueCreate) SetNillableQueryName(v *string) *IssueCreate {
+	if v != nil {
+		_c.SetQueryName(*v)
+	}
+	return _c
+}
+
 // SetExpectedValue sets the "expected_value" field.
 func (_c *IssueCreate) SetExpectedValue(v string) *IssueCreate {
 	_c.mutation.SetExpectedValue(v)
@@ -205,6 +219,10 @@ func (_c *IssueCreate) createSpec() (*Issue, *sqlgraph.CreateSpec) {
 		_node = &Issue{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(issue.Table, sqlgraph.NewFieldSpec(issue.FieldID, field.TypeInt))
 	)
+	if value, ok := _c.mutation.QueryName(); ok {
+		_spec.SetField(issue.FieldQueryName, field.TypeString, value)
+		_node.QueryName = value
+	}
 	if value, ok := _c.mutation.ExpectedValue(); ok {
 		_spec.SetField(issue.FieldExpectedValue, field.TypeString, value)
 		_node.ExpectedValue = value

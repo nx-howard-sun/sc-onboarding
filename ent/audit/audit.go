@@ -16,12 +16,8 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldSQLQuery holds the string denoting the sql_query field in the database.
-	FieldSQLQuery = "sql_query"
-	// FieldExpectedType holds the string denoting the expected_type field in the database.
-	FieldExpectedType = "expected_type"
-	// FieldExpectedValue holds the string denoting the expected_value field in the database.
-	FieldExpectedValue = "expected_value"
+	// FieldQueries holds the string denoting the queries field in the database.
+	FieldQueries = "queries"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -52,9 +48,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldName,
-	FieldSQLQuery,
-	FieldExpectedType,
-	FieldExpectedValue,
+	FieldQueries,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -72,12 +66,6 @@ func ValidColumn(column string) bool {
 var (
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
-	// SQLQueryValidator is a validator for the "sql_query" field. It is called by the builders before save.
-	SQLQueryValidator func(string) error
-	// ExpectedTypeValidator is a validator for the "expected_type" field. It is called by the builders before save.
-	ExpectedTypeValidator func(string) error
-	// ExpectedValueValidator is a validator for the "expected_value" field. It is called by the builders before save.
-	ExpectedValueValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -97,21 +85,6 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
-}
-
-// BySQLQuery orders the results by the sql_query field.
-func BySQLQuery(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldSQLQuery, opts...).ToFunc()
-}
-
-// ByExpectedType orders the results by the expected_type field.
-func ByExpectedType(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldExpectedType, opts...).ToFunc()
-}
-
-// ByExpectedValue orders the results by the expected_value field.
-func ByExpectedValue(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldExpectedValue, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

@@ -9,6 +9,7 @@ import (
 	"security-central/ent/audit"
 	"security-central/ent/auditrun"
 	"security-central/ent/issue"
+	"security-central/internal/model"
 	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -28,21 +29,9 @@ func (_c *AuditCreate) SetName(v string) *AuditCreate {
 	return _c
 }
 
-// SetSQLQuery sets the "sql_query" field.
-func (_c *AuditCreate) SetSQLQuery(v string) *AuditCreate {
-	_c.mutation.SetSQLQuery(v)
-	return _c
-}
-
-// SetExpectedType sets the "expected_type" field.
-func (_c *AuditCreate) SetExpectedType(v string) *AuditCreate {
-	_c.mutation.SetExpectedType(v)
-	return _c
-}
-
-// SetExpectedValue sets the "expected_value" field.
-func (_c *AuditCreate) SetExpectedValue(v string) *AuditCreate {
-	_c.mutation.SetExpectedValue(v)
+// SetQueries sets the "queries" field.
+func (_c *AuditCreate) SetQueries(v []model.QueryRule) *AuditCreate {
+	_c.mutation.SetQueries(v)
 	return _c
 }
 
@@ -159,29 +148,8 @@ func (_c *AuditCreate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Audit.name": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.SQLQuery(); !ok {
-		return &ValidationError{Name: "sql_query", err: errors.New(`ent: missing required field "Audit.sql_query"`)}
-	}
-	if v, ok := _c.mutation.SQLQuery(); ok {
-		if err := audit.SQLQueryValidator(v); err != nil {
-			return &ValidationError{Name: "sql_query", err: fmt.Errorf(`ent: validator failed for field "Audit.sql_query": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.ExpectedType(); !ok {
-		return &ValidationError{Name: "expected_type", err: errors.New(`ent: missing required field "Audit.expected_type"`)}
-	}
-	if v, ok := _c.mutation.ExpectedType(); ok {
-		if err := audit.ExpectedTypeValidator(v); err != nil {
-			return &ValidationError{Name: "expected_type", err: fmt.Errorf(`ent: validator failed for field "Audit.expected_type": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.ExpectedValue(); !ok {
-		return &ValidationError{Name: "expected_value", err: errors.New(`ent: missing required field "Audit.expected_value"`)}
-	}
-	if v, ok := _c.mutation.ExpectedValue(); ok {
-		if err := audit.ExpectedValueValidator(v); err != nil {
-			return &ValidationError{Name: "expected_value", err: fmt.Errorf(`ent: validator failed for field "Audit.expected_value": %w`, err)}
-		}
+	if _, ok := _c.mutation.Queries(); !ok {
+		return &ValidationError{Name: "queries", err: errors.New(`ent: missing required field "Audit.queries"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Audit.created_at"`)}
@@ -219,17 +187,9 @@ func (_c *AuditCreate) createSpec() (*Audit, *sqlgraph.CreateSpec) {
 		_spec.SetField(audit.FieldName, field.TypeString, value)
 		_node.Name = value
 	}
-	if value, ok := _c.mutation.SQLQuery(); ok {
-		_spec.SetField(audit.FieldSQLQuery, field.TypeString, value)
-		_node.SQLQuery = value
-	}
-	if value, ok := _c.mutation.ExpectedType(); ok {
-		_spec.SetField(audit.FieldExpectedType, field.TypeString, value)
-		_node.ExpectedType = value
-	}
-	if value, ok := _c.mutation.ExpectedValue(); ok {
-		_spec.SetField(audit.FieldExpectedValue, field.TypeString, value)
-		_node.ExpectedValue = value
+	if value, ok := _c.mutation.Queries(); ok {
+		_spec.SetField(audit.FieldQueries, field.TypeJSON, value)
+		_node.Queries = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(audit.FieldCreatedAt, field.TypeTime, value)

@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"security-central/internal/model"
 	"time"
 
 	"entgo.io/ent"
@@ -17,9 +18,8 @@ type Audit struct {
 func (Audit) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty(),
-		field.String("sql_query").NotEmpty(),
-		field.String("expected_type").NotEmpty(),
-		field.String("expected_value").NotEmpty(),
+		field.JSON("queries", []model.QueryRule{}).
+			Comment("List of SQL query rules executed during this audit"),
 		field.Time("created_at").Default(time.Now),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}

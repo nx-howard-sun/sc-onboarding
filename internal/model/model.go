@@ -7,13 +7,18 @@ type ExpectedResult struct {
 	Value string `json:"value"`
 }
 
-type Audit struct {
-	ID             int            `json:"id"`
+type QueryRule struct {
 	Name           string         `json:"name"`
 	SQLQuery       string         `json:"sql_query"`
 	ExpectedResult ExpectedResult `json:"expected_result"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+type Audit struct {
+	ID        int         `json:"id"`
+	Name      string      `json:"name"`
+	SQLQuery  []QueryRule `json:"queries"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
 }
 
 type AuditRun struct {
@@ -30,6 +35,7 @@ type Issue struct {
 	ID            int       `json:"id"`
 	AuditID       int       `json:"audit_id"`
 	AuditRunID    int       `json:"audit_run_id"`
+	QueryName     string    `json:"query_name,omitempty"`
 	ExpectedValue string    `json:"expected_value"`
 	ActualValue   string    `json:"actual_value"`
 	Description   string    `json:"description"`

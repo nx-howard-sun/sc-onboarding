@@ -18,9 +18,8 @@ type Endpoints struct {
 }
 
 type CreateAuditRequest struct {
-	Name           string               `json:"name"`
-	SQLQuery       string               `json:"sql_query"`
-	ExpectedResult model.ExpectedResult `json:"expected_result"`
+	Name    string            `json:"name"`
+	Queries []model.QueryRule `json:"queries"`
 }
 
 type GetAuditRequest struct {
@@ -60,9 +59,8 @@ func makeCreateAuditEndpoint(svc service.Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(CreateAuditRequest)
 		return svc.CreateAudit(ctx, service.CreateAuditRequest{
-			Name:           req.Name,
-			SQLQuery:       req.SQLQuery,
-			ExpectedResult: req.ExpectedResult,
+			Name:    req.Name,
+			Queries: req.Queries,
 		})
 	}
 }

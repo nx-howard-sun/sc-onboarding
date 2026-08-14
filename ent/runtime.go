@@ -21,24 +21,12 @@ func init() {
 	auditDescName := auditFields[0].Descriptor()
 	// audit.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	audit.NameValidator = auditDescName.Validators[0].(func(string) error)
-	// auditDescSQLQuery is the schema descriptor for sql_query field.
-	auditDescSQLQuery := auditFields[1].Descriptor()
-	// audit.SQLQueryValidator is a validator for the "sql_query" field. It is called by the builders before save.
-	audit.SQLQueryValidator = auditDescSQLQuery.Validators[0].(func(string) error)
-	// auditDescExpectedType is the schema descriptor for expected_type field.
-	auditDescExpectedType := auditFields[2].Descriptor()
-	// audit.ExpectedTypeValidator is a validator for the "expected_type" field. It is called by the builders before save.
-	audit.ExpectedTypeValidator = auditDescExpectedType.Validators[0].(func(string) error)
-	// auditDescExpectedValue is the schema descriptor for expected_value field.
-	auditDescExpectedValue := auditFields[3].Descriptor()
-	// audit.ExpectedValueValidator is a validator for the "expected_value" field. It is called by the builders before save.
-	audit.ExpectedValueValidator = auditDescExpectedValue.Validators[0].(func(string) error)
 	// auditDescCreatedAt is the schema descriptor for created_at field.
-	auditDescCreatedAt := auditFields[4].Descriptor()
+	auditDescCreatedAt := auditFields[2].Descriptor()
 	// audit.DefaultCreatedAt holds the default value on creation for the created_at field.
 	audit.DefaultCreatedAt = auditDescCreatedAt.Default.(func() time.Time)
 	// auditDescUpdatedAt is the schema descriptor for updated_at field.
-	auditDescUpdatedAt := auditFields[5].Descriptor()
+	auditDescUpdatedAt := auditFields[3].Descriptor()
 	// audit.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	audit.DefaultUpdatedAt = auditDescUpdatedAt.Default.(func() time.Time)
 	// audit.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -66,23 +54,23 @@ func init() {
 	issueFields := schema.Issue{}.Fields()
 	_ = issueFields
 	// issueDescExpectedValue is the schema descriptor for expected_value field.
-	issueDescExpectedValue := issueFields[2].Descriptor()
+	issueDescExpectedValue := issueFields[3].Descriptor()
 	// issue.ExpectedValueValidator is a validator for the "expected_value" field. It is called by the builders before save.
 	issue.ExpectedValueValidator = issueDescExpectedValue.Validators[0].(func(string) error)
 	// issueDescActualValue is the schema descriptor for actual_value field.
-	issueDescActualValue := issueFields[3].Descriptor()
+	issueDescActualValue := issueFields[4].Descriptor()
 	// issue.ActualValueValidator is a validator for the "actual_value" field. It is called by the builders before save.
 	issue.ActualValueValidator = issueDescActualValue.Validators[0].(func(string) error)
 	// issueDescDescription is the schema descriptor for description field.
-	issueDescDescription := issueFields[4].Descriptor()
+	issueDescDescription := issueFields[5].Descriptor()
 	// issue.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
 	issue.DescriptionValidator = issueDescDescription.Validators[0].(func(string) error)
 	// issueDescCreatedAt is the schema descriptor for created_at field.
-	issueDescCreatedAt := issueFields[5].Descriptor()
+	issueDescCreatedAt := issueFields[6].Descriptor()
 	// issue.DefaultCreatedAt holds the default value on creation for the created_at field.
 	issue.DefaultCreatedAt = issueDescCreatedAt.Default.(func() time.Time)
 	// issueDescUpdatedAt is the schema descriptor for updated_at field.
-	issueDescUpdatedAt := issueFields[6].Descriptor()
+	issueDescUpdatedAt := issueFields[7].Descriptor()
 	// issue.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	issue.DefaultUpdatedAt = issueDescUpdatedAt.Default.(func() time.Time)
 	// issue.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

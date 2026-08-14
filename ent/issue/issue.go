@@ -18,6 +18,8 @@ const (
 	FieldAuditID = "audit_id"
 	// FieldAuditRunID holds the string denoting the audit_run_id field in the database.
 	FieldAuditRunID = "audit_run_id"
+	// FieldQueryName holds the string denoting the query_name field in the database.
+	FieldQueryName = "query_name"
 	// FieldExpectedValue holds the string denoting the expected_value field in the database.
 	FieldExpectedValue = "expected_value"
 	// FieldActualValue holds the string denoting the actual_value field in the database.
@@ -55,6 +57,7 @@ var Columns = []string{
 	FieldID,
 	FieldAuditID,
 	FieldAuditRunID,
+	FieldQueryName,
 	FieldExpectedValue,
 	FieldActualValue,
 	FieldDescription,
@@ -103,6 +106,11 @@ func ByAuditID(opts ...sql.OrderTermOption) OrderOption {
 // ByAuditRunID orders the results by the audit_run_id field.
 func ByAuditRunID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAuditRunID, opts...).ToFunc()
+}
+
+// ByQueryName orders the results by the query_name field.
+func ByQueryName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldQueryName, opts...).ToFunc()
 }
 
 // ByExpectedValue orders the results by the expected_value field.

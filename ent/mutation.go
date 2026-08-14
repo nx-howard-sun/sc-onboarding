@@ -11,6 +11,7 @@ import (
 	"security-central/ent/issue"
 	"security-central/ent/predicate"
 	"security-central/ent/vminventory"
+	"security-central/internal/model"
 	"sync"
 	"time"
 
@@ -36,25 +37,24 @@ const (
 // AuditMutation represents an operation that mutates the Audit nodes in the graph.
 type AuditMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *int
-	name           *string
-	sql_query      *string
-	expected_type  *string
-	expected_value *string
-	created_at     *time.Time
-	updated_at     *time.Time
-	clearedFields  map[string]struct{}
-	runs           map[int]struct{}
-	removedruns    map[int]struct{}
-	clearedruns    bool
-	issues         map[int]struct{}
-	removedissues  map[int]struct{}
-	clearedissues  bool
-	done           bool
-	oldValue       func(context.Context) (*Audit, error)
-	predicates     []predicate.Audit
+	op            Op
+	typ           string
+	id            *int
+	name          *string
+	queries       *[]model.QueryRule
+	appendqueries []model.QueryRule
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	runs          map[int]struct{}
+	removedruns   map[int]struct{}
+	clearedruns   bool
+	issues        map[int]struct{}
+	removedissues map[int]struct{}
+	clearedissues bool
+	done          bool
+	oldValue      func(context.Context) (*Audit, error)
+	predicates    []predicate.Audit
 }
 
 var _ ent.Mutation = (*AuditMutation)(nil)
@@ -191,112 +191,55 @@ func (m *AuditMutation) ResetName() {
 	m.name = nil
 }
 
-// SetSQLQuery sets the "sql_query" field.
-func (m *AuditMutation) SetSQLQuery(s string) {
-	m.sql_query = &s
+// SetQueries sets the "queries" field.
+func (m *AuditMutation) SetQueries(mr []model.QueryRule) {
+	m.queries = &mr
+	m.appendqueries = nil
 }
 
-// SQLQuery returns the value of the "sql_query" field in the mutation.
-func (m *AuditMutation) SQLQuery() (r string, exists bool) {
-	v := m.sql_query
+// Queries returns the value of the "queries" field in the mutation.
+func (m *AuditMutation) Queries() (r []model.QueryRule, exists bool) {
+	v := m.queries
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldSQLQuery returns the old "sql_query" field's value of the Audit entity.
+// OldQueries returns the old "queries" field's value of the Audit entity.
 // If the Audit object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AuditMutation) OldSQLQuery(ctx context.Context) (v string, err error) {
+func (m *AuditMutation) OldQueries(ctx context.Context) (v []model.QueryRule, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldSQLQuery is only allowed on UpdateOne operations")
+		return v, errors.New("OldQueries is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldSQLQuery requires an ID field in the mutation")
+		return v, errors.New("OldQueries requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldSQLQuery: %w", err)
+		return v, fmt.Errorf("querying old value for OldQueries: %w", err)
 	}
-	return oldValue.SQLQuery, nil
+	return oldValue.Queries, nil
 }
 
-// ResetSQLQuery resets all changes to the "sql_query" field.
-func (m *AuditMutation) ResetSQLQuery() {
-	m.sql_query = nil
+// AppendQueries adds mr to the "queries" field.
+func (m *AuditMutation) AppendQueries(mr []model.QueryRule) {
+	m.appendqueries = append(m.appendqueries, mr...)
 }
 
-// SetExpectedType sets the "expected_type" field.
-func (m *AuditMutation) SetExpectedType(s string) {
-	m.expected_type = &s
+// AppendedQueries returns the list of values that were appended to the "queries" field in this mutation.
+func (m *AuditMutation) AppendedQueries() ([]model.QueryRule, bool) {
+	if len(m.appendqueries) == 0 {
+		return nil, false
+	}
+	return m.appendqueries, true
 }
 
-// ExpectedType returns the value of the "expected_type" field in the mutation.
-func (m *AuditMutation) ExpectedType() (r string, exists bool) {
-	v := m.expected_type
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldExpectedType returns the old "expected_type" field's value of the Audit entity.
-// If the Audit object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AuditMutation) OldExpectedType(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldExpectedType is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldExpectedType requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldExpectedType: %w", err)
-	}
-	return oldValue.ExpectedType, nil
-}
-
-// ResetExpectedType resets all changes to the "expected_type" field.
-func (m *AuditMutation) ResetExpectedType() {
-	m.expected_type = nil
-}
-
-// SetExpectedValue sets the "expected_value" field.
-func (m *AuditMutation) SetExpectedValue(s string) {
-	m.expected_value = &s
-}
-
-// ExpectedValue returns the value of the "expected_value" field in the mutation.
-func (m *AuditMutation) ExpectedValue() (r string, exists bool) {
-	v := m.expected_value
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldExpectedValue returns the old "expected_value" field's value of the Audit entity.
-// If the Audit object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AuditMutation) OldExpectedValue(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldExpectedValue is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldExpectedValue requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldExpectedValue: %w", err)
-	}
-	return oldValue.ExpectedValue, nil
-}
-
-// ResetExpectedValue resets all changes to the "expected_value" field.
-func (m *AuditMutation) ResetExpectedValue() {
-	m.expected_value = nil
+// ResetQueries resets all changes to the "queries" field.
+func (m *AuditMutation) ResetQueries() {
+	m.queries = nil
+	m.appendqueries = nil
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -513,18 +456,12 @@ func (m *AuditMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AuditMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 4)
 	if m.name != nil {
 		fields = append(fields, audit.FieldName)
 	}
-	if m.sql_query != nil {
-		fields = append(fields, audit.FieldSQLQuery)
-	}
-	if m.expected_type != nil {
-		fields = append(fields, audit.FieldExpectedType)
-	}
-	if m.expected_value != nil {
-		fields = append(fields, audit.FieldExpectedValue)
+	if m.queries != nil {
+		fields = append(fields, audit.FieldQueries)
 	}
 	if m.created_at != nil {
 		fields = append(fields, audit.FieldCreatedAt)
@@ -542,12 +479,8 @@ func (m *AuditMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case audit.FieldName:
 		return m.Name()
-	case audit.FieldSQLQuery:
-		return m.SQLQuery()
-	case audit.FieldExpectedType:
-		return m.ExpectedType()
-	case audit.FieldExpectedValue:
-		return m.ExpectedValue()
+	case audit.FieldQueries:
+		return m.Queries()
 	case audit.FieldCreatedAt:
 		return m.CreatedAt()
 	case audit.FieldUpdatedAt:
@@ -563,12 +496,8 @@ func (m *AuditMutation) OldField(ctx context.Context, name string) (ent.Value, e
 	switch name {
 	case audit.FieldName:
 		return m.OldName(ctx)
-	case audit.FieldSQLQuery:
-		return m.OldSQLQuery(ctx)
-	case audit.FieldExpectedType:
-		return m.OldExpectedType(ctx)
-	case audit.FieldExpectedValue:
-		return m.OldExpectedValue(ctx)
+	case audit.FieldQueries:
+		return m.OldQueries(ctx)
 	case audit.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case audit.FieldUpdatedAt:
@@ -589,26 +518,12 @@ func (m *AuditMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetName(v)
 		return nil
-	case audit.FieldSQLQuery:
-		v, ok := value.(string)
+	case audit.FieldQueries:
+		v, ok := value.([]model.QueryRule)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetSQLQuery(v)
-		return nil
-	case audit.FieldExpectedType:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetExpectedType(v)
-		return nil
-	case audit.FieldExpectedValue:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetExpectedValue(v)
+		m.SetQueries(v)
 		return nil
 	case audit.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -676,14 +591,8 @@ func (m *AuditMutation) ResetField(name string) error {
 	case audit.FieldName:
 		m.ResetName()
 		return nil
-	case audit.FieldSQLQuery:
-		m.ResetSQLQuery()
-		return nil
-	case audit.FieldExpectedType:
-		m.ResetExpectedType()
-		return nil
-	case audit.FieldExpectedValue:
-		m.ResetExpectedValue()
+	case audit.FieldQueries:
+		m.ResetQueries()
 		return nil
 	case audit.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -1717,6 +1626,7 @@ type IssueMutation struct {
 	op               Op
 	typ              string
 	id               *int
+	query_name       *string
 	expected_value   *string
 	actual_value     *string
 	description      *string
@@ -1900,6 +1810,55 @@ func (m *IssueMutation) OldAuditRunID(ctx context.Context) (v int, err error) {
 // ResetAuditRunID resets all changes to the "audit_run_id" field.
 func (m *IssueMutation) ResetAuditRunID() {
 	m.audit_run = nil
+}
+
+// SetQueryName sets the "query_name" field.
+func (m *IssueMutation) SetQueryName(s string) {
+	m.query_name = &s
+}
+
+// QueryName returns the value of the "query_name" field in the mutation.
+func (m *IssueMutation) QueryName() (r string, exists bool) {
+	v := m.query_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldQueryName returns the old "query_name" field's value of the Issue entity.
+// If the Issue object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IssueMutation) OldQueryName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldQueryName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldQueryName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldQueryName: %w", err)
+	}
+	return oldValue.QueryName, nil
+}
+
+// ClearQueryName clears the value of the "query_name" field.
+func (m *IssueMutation) ClearQueryName() {
+	m.query_name = nil
+	m.clearedFields[issue.FieldQueryName] = struct{}{}
+}
+
+// QueryNameCleared returns if the "query_name" field was cleared in this mutation.
+func (m *IssueMutation) QueryNameCleared() bool {
+	_, ok := m.clearedFields[issue.FieldQueryName]
+	return ok
+}
+
+// ResetQueryName resets all changes to the "query_name" field.
+func (m *IssueMutation) ResetQueryName() {
+	m.query_name = nil
+	delete(m.clearedFields, issue.FieldQueryName)
 }
 
 // SetExpectedValue sets the "expected_value" field.
@@ -2170,12 +2129,15 @@ func (m *IssueMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *IssueMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 8)
 	if m.audit != nil {
 		fields = append(fields, issue.FieldAuditID)
 	}
 	if m.audit_run != nil {
 		fields = append(fields, issue.FieldAuditRunID)
+	}
+	if m.query_name != nil {
+		fields = append(fields, issue.FieldQueryName)
 	}
 	if m.expected_value != nil {
 		fields = append(fields, issue.FieldExpectedValue)
@@ -2204,6 +2166,8 @@ func (m *IssueMutation) Field(name string) (ent.Value, bool) {
 		return m.AuditID()
 	case issue.FieldAuditRunID:
 		return m.AuditRunID()
+	case issue.FieldQueryName:
+		return m.QueryName()
 	case issue.FieldExpectedValue:
 		return m.ExpectedValue()
 	case issue.FieldActualValue:
@@ -2227,6 +2191,8 @@ func (m *IssueMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldAuditID(ctx)
 	case issue.FieldAuditRunID:
 		return m.OldAuditRunID(ctx)
+	case issue.FieldQueryName:
+		return m.OldQueryName(ctx)
 	case issue.FieldExpectedValue:
 		return m.OldExpectedValue(ctx)
 	case issue.FieldActualValue:
@@ -2259,6 +2225,13 @@ func (m *IssueMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAuditRunID(v)
+		return nil
+	case issue.FieldQueryName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetQueryName(v)
 		return nil
 	case issue.FieldExpectedValue:
 		v, ok := value.(string)
@@ -2327,7 +2300,11 @@ func (m *IssueMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *IssueMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(issue.FieldQueryName) {
+		fields = append(fields, issue.FieldQueryName)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -2340,6 +2317,11 @@ func (m *IssueMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *IssueMutation) ClearField(name string) error {
+	switch name {
+	case issue.FieldQueryName:
+		m.ClearQueryName()
+		return nil
+	}
 	return fmt.Errorf("unknown Issue nullable field %s", name)
 }
 
@@ -2352,6 +2334,9 @@ func (m *IssueMutation) ResetField(name string) error {
 		return nil
 	case issue.FieldAuditRunID:
 		m.ResetAuditRunID()
+		return nil
+	case issue.FieldQueryName:
+		m.ResetQueryName()
 		return nil
 	case issue.FieldExpectedValue:
 		m.ResetExpectedValue()
