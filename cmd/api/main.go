@@ -1,0 +1,79 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
+	"github.com/go-kit/kit/log"
+	"security-central/ent"
+	"security-central/internal/db"
+	"security-central/internal/endpoint"
+	"security-central/internal/repository"
+	"security-central/internal/service"
+	"security-central/internal/transport"
+)
+
+func main() {
+	logger := log.NewLogfmtLogger(os.Stdout)
+
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://postgres:postgres@localhost:5432/security_central?sslmode=disable"
+	}
+
+	sqlDB, err := db.OpenPostgres(dsn)
+	if err != nil {
+		_ = logger.Log("fatal", err)
+		os.Exit(1)
+	}
+	defer sqlDB.Close()
+
+	drv := entsql.OpenDB(dialect.Postgres, sqlDB)
+	client := ent.NewClient(ent.Driver(drv))
+	defer client.Close()
+
+	ctx := context.Background()
+	if err := client.Schema.Create(ctx); err != nil {
+		_ = logger.Log("fatal", err)
+		os.Exit(1)
+	}
+
+	repo := repository.NewEntRepository(client, sqlDB)
+	svc := service.New(repo)
+	eps := endpoint.New(svc)
+	handler := transport.NewHTTPHandler(eps, logger)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		_ = logger.Log("msg", fmt.Sprintf("HTTP server listening on :%s", port))
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			_ = logger.Log("fatal", err)
+			os.Exit(1)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = server.Shutdown(shutdownCtx)
+}
