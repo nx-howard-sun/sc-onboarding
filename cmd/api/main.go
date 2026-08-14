@@ -12,12 +12,16 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/go-kit/kit/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"security-central/ent"
 	"security-central/internal/db"
 	"security-central/internal/endpoint"
 	"security-central/internal/repository"
 	"security-central/internal/service"
 	"security-central/internal/transport"
+	"security-central/internal/worker"
+	auditpb "security-central/proto"
 )
 
 func main() {
@@ -45,8 +49,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	workerAddr := os.Getenv("AUDIT_WORKER_ADDR")
+	if workerAddr == "" {
+		workerAddr = "localhost:9090"
+	}
+	grpcConn, err := grpc.NewClient(workerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		_ = logger.Log("fatal", err)
+		os.Exit(1)
+	}
+	defer grpcConn.Close()
+
+	workerClient := worker.NewClient(auditpb.NewAuditExecutorClient(grpcConn))
 	repo := repository.NewEntRepository(client, sqlDB)
-	svc := service.New(repo)
+	svc := service.New(repo, workerClient)
 	eps := endpoint.New(svc)
 	handler := transport.NewHTTPHandler(eps, logger)
 

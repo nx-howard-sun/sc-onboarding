@@ -18,6 +18,7 @@ type Service interface {
 	CreateAudit(ctx context.Context, req CreateAuditRequest) (*model.Audit, error)
 	GetAudit(ctx context.Context, id int) (*model.Audit, error)
 	RunAudit(ctx context.Context, auditID int) (*RunAuditResponse, error)
+	ExecuteAuditRun(ctx context.Context, auditID, runID int) (*model.AuditRun, error)
 	GetRunStatus(ctx context.Context, auditID, runID int) (*model.AuditRun, error)
 	ListIssues(ctx context.Context, page, pageSize int) ([]model.Issue, error)
 	GetIssue(ctx context.Context, id int) (*model.Issue, error)
@@ -29,16 +30,22 @@ type CreateAuditRequest struct {
 }
 
 type RunAuditResponse struct {
-	Run   *model.AuditRun `json:"run"`
-	Issue *model.Issue    `json:"issue,omitempty"`
+	Run      *model.AuditRun `json:"run"`
+	Accepted bool            `json:"accepted"`
+	Message  string          `json:"message,omitempty"`
+}
+
+type AuditExecutor interface {
+	ExecuteAudit(ctx context.Context, auditID, runID int) error
 }
 
 type securityCentralService struct {
-	repo repository.Repository
+	repo     repository.Repository
+	executor AuditExecutor
 }
 
-func New(repo repository.Repository) Service {
-	return &securityCentralService{repo: repo}
+func New(repo repository.Repository, executor AuditExecutor) Service {
+	return &securityCentralService{repo: repo, executor: executor}
 }
 
 func (s *securityCentralService) CreateAudit(ctx context.Context, req CreateAuditRequest) (*model.Audit, error) {
@@ -70,40 +77,64 @@ func (s *securityCentralService) GetAudit(ctx context.Context, id int) (*model.A
 }
 
 func (s *securityCentralService) RunAudit(ctx context.Context, auditID int) (*RunAuditResponse, error) {
-	a, err := s.repo.GetAudit(ctx, auditID)
-	if err != nil {
+	if _, err := s.repo.GetAudit(ctx, auditID); err != nil {
 		return nil, err
 	}
-
 	run, err := s.repo.CreateAuditRun(ctx, auditID)
 	if err != nil {
 		return nil, err
 	}
+	if s.executor == nil {
+		msg := "audit executor is not configured"
+		updatedRun, updateErr := s.repo.UpdateAuditRunResult(ctx, run.ID, "error", nil, &msg)
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		return &RunAuditResponse{Run: updatedRun, Accepted: false, Message: msg}, nil
+	}
+	if err := s.executor.ExecuteAudit(ctx, auditID, run.ID); err != nil {
+		msg := fmt.Sprintf("failed to dispatch audit run to worker: %v", err)
+		updatedRun, updateErr := s.repo.UpdateAuditRunResult(ctx, run.ID, "error", nil, &msg)
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		return &RunAuditResponse{Run: updatedRun, Accepted: false, Message: msg}, nil
+	}
+	return &RunAuditResponse{
+		Run:      run,
+		Accepted: true,
+		Message:  "audit run accepted for asynchronous execution",
+	}, nil
+}
 
+func (s *securityCentralService) ExecuteAuditRun(ctx context.Context, auditID, runID int) (*model.AuditRun, error) {
+	a, err := s.repo.GetAudit(ctx, auditID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.repo.GetAuditRun(ctx, auditID, runID); err != nil {
+		return nil, err
+	}
 	failCount := 0
 	actualPairs := make([]string, 0, len(a.SQLQuery))
-	var firstIssue *model.Issue
 
 	for _, q := range a.SQLQuery {
 		actualValue, queryErr := s.repo.RunScalarQuery(ctx, q.SQLQuery)
 		if queryErr != nil {
 			msg := fmt.Sprintf("query %q failed: %s", q.Name, queryErr.Error())
-			updatedRun, updateErr := s.repo.UpdateAuditRunResult(ctx, run.ID, "error", nil, &msg)
+			updatedRun, updateErr := s.repo.UpdateAuditRunResult(ctx, runID, "error", nil, &msg)
 			if updateErr != nil {
 				return nil, updateErr
 			}
-			return &RunAuditResponse{Run: updatedRun}, nil
+			return updatedRun, nil
 		}
 		actualPairs = append(actualPairs, fmt.Sprintf("%s=%s", q.Name, actualValue))
 		if !valuesEqualByType(q.ExpectedResult.Type, q.ExpectedResult.Value, actualValue) {
 			failCount++
 			description := fmt.Sprintf("Audit %q query %q deviated: expected=%s actual=%s", a.Name, q.Name, q.ExpectedResult.Value, actualValue)
-			issue, issueErr := s.repo.CreateIssue(ctx, a.ID, run.ID, q.Name, q.ExpectedResult.Value, actualValue, description)
+			_, issueErr := s.repo.CreateIssue(ctx, a.ID, runID, q.Name, q.ExpectedResult.Value, actualValue, description)
 			if issueErr != nil {
 				return nil, issueErr
-			}
-			if firstIssue == nil {
-				firstIssue = issue
 			}
 		}
 	}
@@ -114,12 +145,11 @@ func (s *securityCentralService) RunAudit(ctx context.Context, auditID int) (*Ru
 	}
 	actualSummary := strings.Join(actualPairs, ", ")
 
-	updatedRun, err := s.repo.UpdateAuditRunResult(ctx, run.ID, status, &actualSummary, nil)
+	updatedRun, err := s.repo.UpdateAuditRunResult(ctx, runID, status, &actualSummary, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	return &RunAuditResponse{Run: updatedRun, Issue: firstIssue}, nil
+	return updatedRun, nil
 }
 
 func (s *securityCentralService) GetRunStatus(ctx context.Context, auditID, runID int) (*model.AuditRun, error) {

@@ -5,6 +5,7 @@ Implementation using:
 - go-kit (service/endpoint/transport layering)
 - Ent (ORM + schema migration)
 - PostgreSQL
+- gRPC (async worker for audit execution)
 
 ## Architecture
 
@@ -25,7 +26,7 @@ This project uses a layered design so each part has one responsibility:
 
 Design notes are documented in `docs/architecture.md`.
 
-## Request Flow Example (`POST /audits/{id}/run`)
+## Request Flow Example (`POST /audits/{id}/run`) - Async (Milestone 3)
 
 1. Route `/audits/{id}/run` matches in `internal/transport/http.go`.
 2. Transport decoder extracts `id` into a typed request.
@@ -34,11 +35,14 @@ Design notes are documented in `docs/architecture.md`.
 5. Service layer:
    - fetches audit definition from repository
    - creates an `audit_run` row with `running`
-   - executes all query rules in `queries`
+   - dispatches `audit_id` + `run_id` to gRPC worker
+   - returns immediately to caller with accepted status
+6. gRPC worker receives request and executes audit in background:
+   - runs all query rules in `queries`
    - compares each query's `actual` vs `expected` based on expected type
    - updates run status to `passed`, `failed`, or `error`
    - creates an `issue` per failed query (with `query_name`)
-6. Transport encodes final response as JSON.
+7. `GET /audits/{id}/run/{run_id}/status` reflects latest async state.
 
 ## Setup Instructions
 
@@ -73,15 +77,24 @@ export DATABASE_URL='postgres://<user>:<pass>@localhost:<port>/security_central?
 go mod tidy
 ```
 
-### 5) Start API server
+### 5) Start gRPC worker (required for async run)
+
+```bash
+go run ./cmd/worker
+```
+
+Worker listens on `:9090` by default (or `WORKER_PORT` env var).
+
+### 6) Start API server
 
 ```bash
 go run ./cmd/api
 ```
 
-Server starts on `http://localhost:8080` by default (or `PORT` env var if set).
+Server starts on `http://localhost:8080` by default (or `PORT` env var if set).  
+API connects to worker at `AUDIT_WORKER_ADDR` (default `localhost:9090`).
 
-### 6) (Optional) Seed example table for demo audit
+### 7) (Optional) Seed example table for demo audit
 
 The service auto-creates tables from Ent schemas on startup, including:
 - `audits`
@@ -101,6 +114,14 @@ The service auto-creates tables from Ent schemas on startup, including:
 - `GET /issues/{id}`
 
 All responses are JSON.
+
+### Milestone 3 Async Behavior
+
+- `POST /audits/{id}/run` now triggers execution asynchronously via gRPC worker.
+- API returns immediately with:
+  - `run.status = "running"` when dispatch succeeds
+  - `accepted = true`
+- Poll `GET /audits/{id}/run/{run_id}/status` until status is `passed`, `failed`, or `error`.
 
 ### Sample request: create audit (multi-query)
 
@@ -128,6 +149,21 @@ curl -X POST http://localhost:8080/audits \
 
 ```bash
 curl -X POST http://localhost:8080/audits/1/run
+```
+
+Example response:
+
+```json
+{
+  "run": {
+    "id": 12,
+    "audit_id": 1,
+    "status": "running",
+    "started_at": "2026-08-14T15:30:00Z"
+  },
+  "accepted": true,
+  "message": "audit run accepted for asynchronous execution"
+}
 ```
 
 ### Sample request: check run status

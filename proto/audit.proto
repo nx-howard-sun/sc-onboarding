@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package audit;
+
+option go_package = "security-central/proto/auditpb";
+
+service AuditExecutor {
+  rpc ExecuteAudit (ExecuteAuditRequest) returns (ExecuteAuditResponse);
+}
+
+message ExecuteAuditRequest {
+  int32 audit_id = 1;
+  int32 run_id   = 2;
+}
+
+message ExecuteAuditResponse {
+  bool accepted  = 1;
+  string message = 2;
+}
