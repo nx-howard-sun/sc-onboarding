@@ -16,6 +16,7 @@ import (
 	"security-central/ent/issue"
 	"security-central/ent/policyaudit"
 	"security-central/ent/policyrun"
+	"security-central/ent/user"
 	"security-central/ent/vminventory"
 
 	"entgo.io/ent"
@@ -39,6 +40,8 @@ type Client struct {
 	PolicyAudit *PolicyAuditClient
 	// PolicyRun is the client for interacting with the PolicyRun builders.
 	PolicyRun *PolicyRunClient
+	// User is the client for interacting with the User builders.
+	User *UserClient
 	// VMInventory is the client for interacting with the VMInventory builders.
 	VMInventory *VMInventoryClient
 }
@@ -57,6 +60,7 @@ func (c *Client) init() {
 	c.Issue = NewIssueClient(c.config)
 	c.PolicyAudit = NewPolicyAuditClient(c.config)
 	c.PolicyRun = NewPolicyRunClient(c.config)
+	c.User = NewUserClient(c.config)
 	c.VMInventory = NewVMInventoryClient(c.config)
 }
 
@@ -155,6 +159,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Issue:       NewIssueClient(cfg),
 		PolicyAudit: NewPolicyAuditClient(cfg),
 		PolicyRun:   NewPolicyRunClient(cfg),
+		User:        NewUserClient(cfg),
 		VMInventory: NewVMInventoryClient(cfg),
 	}, nil
 }
@@ -180,6 +185,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Issue:       NewIssueClient(cfg),
 		PolicyAudit: NewPolicyAuditClient(cfg),
 		PolicyRun:   NewPolicyRunClient(cfg),
+		User:        NewUserClient(cfg),
 		VMInventory: NewVMInventoryClient(cfg),
 	}, nil
 }
@@ -210,7 +216,7 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.VMInventory,
+		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.User, c.VMInventory,
 	} {
 		n.Use(hooks...)
 	}
@@ -220,7 +226,7 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.VMInventory,
+		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.User, c.VMInventory,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -239,6 +245,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PolicyAudit.mutate(ctx, m)
 	case *PolicyRunMutation:
 		return c.PolicyRun.mutate(ctx, m)
+	case *UserMutation:
+		return c.User.mutate(ctx, m)
 	case *VMInventoryMutation:
 		return c.VMInventory.mutate(ctx, m)
 	default:
@@ -1007,6 +1015,139 @@ func (c *PolicyRunClient) mutate(ctx context.Context, m *PolicyRunMutation) (Val
 	}
 }
 
+// UserClient is a client for the User schema.
+type UserClient struct {
+	config
+}
+
+// NewUserClient returns a client for the User from the given config.
+func NewUserClient(c config) *UserClient {
+	return &UserClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `user.Hooks(f(g(h())))`.
+func (c *UserClient) Use(hooks ...Hook) {
+	c.hooks.User = append(c.hooks.User, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `user.Intercept(f(g(h())))`.
+func (c *UserClient) Intercept(interceptors ...Interceptor) {
+	c.inters.User = append(c.inters.User, interceptors...)
+}
+
+// Create returns a builder for creating a User entity.
+func (c *UserClient) Create() *UserCreate {
+	mutation := newUserMutation(c.config, OpCreate)
+	return &UserCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of User entities.
+func (c *UserClient) CreateBulk(builders ...*UserCreate) *UserCreateBulk {
+	return &UserCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserClient) MapCreateBulk(slice any, setFunc func(*UserCreate, int)) *UserCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserCreateBulk{err: fmt.Errorf("calling to UserClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for User.
+func (c *UserClient) Update() *UserUpdate {
+	mutation := newUserMutation(c.config, OpUpdate)
+	return &UserUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserClient) UpdateOne(_m *User) *UserUpdateOne {
+	mutation := newUserMutation(c.config, OpUpdateOne, withUser(_m))
+	return &UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserClient) UpdateOneID(id int) *UserUpdateOne {
+	mutation := newUserMutation(c.config, OpUpdateOne, withUserID(id))
+	return &UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for User.
+func (c *UserClient) Delete() *UserDelete {
+	mutation := newUserMutation(c.config, OpDelete)
+	return &UserDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserClient) DeleteOne(_m *User) *UserDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserClient) DeleteOneID(id int) *UserDeleteOne {
+	builder := c.Delete().Where(user.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserDeleteOne{builder}
+}
+
+// Query returns a query builder for User.
+func (c *UserClient) Query() *UserQuery {
+	return &UserQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUser},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a User entity by its id.
+func (c *UserClient) Get(ctx context.Context, id int) (*User, error) {
+	return c.Query().Where(user.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserClient) GetX(ctx context.Context, id int) *User {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *UserClient) Hooks() []Hook {
+	return c.hooks.User
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserClient) Interceptors() []Interceptor {
+	return c.inters.User
+}
+
+func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown User mutation op: %q", m.Op())
+	}
+}
+
 // VMInventoryClient is a client for the VMInventory schema.
 type VMInventoryClient struct {
 	config
@@ -1143,9 +1284,10 @@ func (c *VMInventoryClient) mutate(ctx context.Context, m *VMInventoryMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, VMInventory []ent.Hook
+		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, User, VMInventory []ent.Hook
 	}
 	inters struct {
-		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, VMInventory []ent.Interceptor
+		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, User,
+		VMInventory []ent.Interceptor
 	}
 )

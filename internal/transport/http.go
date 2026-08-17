@@ -6,11 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"security-central/internal/endpoint"
+	"security-central/internal/service"
 
 	"github.com/go-kit/kit/log"
 	httptransport "github.com/go-kit/kit/transport/http"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
 
@@ -27,72 +30,81 @@ func NewHTTPHandler(e endpoint.Endpoints, logger log.Logger) http.Handler {
 	}
 
 	// ==========================================
-	// AUDITS
+	// PUBLIC ROUTE
 	// ==========================================
+	r.Methods(http.MethodPost).Path("/login").Handler(httptransport.NewServer(
+		e.Login,
+		decodeLoginRequest,
+		encodeResponse,
+		options...,
+	))
 
-	r.Methods(http.MethodPost).Path("/audits").Handler(httptransport.NewServer(
+	// ==========================================
+	// PROTECTED ROUTES (Requires Bearer JWT)
+	// ==========================================
+	protected := r.PathPrefix("/").Subrouter()
+	protected.Use(authAndRBACMiddleware)
+
+	// Audits
+	protected.Methods(http.MethodPost).Path("/audits").Handler(httptransport.NewServer(
 		e.CreateAudit,
 		decodeCreateAuditRequest,
 		encodeResponse,
 		options...,
 	))
-	r.Methods(http.MethodGet).Path("/audits/{id}").Handler(httptransport.NewServer(
+	protected.Methods(http.MethodGet).Path("/audits/{id}").Handler(httptransport.NewServer(
 		e.GetAudit,
 		decodeGetAuditRequest,
 		encodeResponse,
 		options...,
 	))
-	r.Methods(http.MethodPost).Path("/audits/{id}/run").Handler(httptransport.NewServer(
+	protected.Methods(http.MethodPost).Path("/audits/{id}/run").Handler(httptransport.NewServer(
 		e.RunAudit,
 		decodeRunAuditRequest,
 		encodeResponse,
 		options...,
 	))
-	r.Methods(http.MethodGet).Path("/audits/{id}/run/{run_id}/status").Handler(httptransport.NewServer(
+	protected.Methods(http.MethodGet).Path("/audits/{id}/run/{run_id}/status").Handler(httptransport.NewServer(
 		e.GetRunStatus,
 		decodeGetRunStatusRequest,
 		encodeResponse,
 		options...,
 	))
 
-	// ==========================================
-	// ISSUES
-	// ==========================================
-	r.Methods(http.MethodGet).Path("/issues/list").Handler(httptransport.NewServer(
+	// Issues
+	protected.Methods(http.MethodGet).Path("/issues/list").Handler(httptransport.NewServer(
 		e.ListIssues,
 		decodeListIssuesRequest,
 		encodeResponse,
 		options...,
 	))
-	r.Methods(http.MethodGet).Path("/issues/{id}").Handler(httptransport.NewServer(
+	protected.Methods(http.MethodGet).Path("/issues/{id}").Handler(httptransport.NewServer(
 		e.GetIssue,
 		decodeGetIssueRequest,
 		encodeResponse,
 		options...,
 	))
 
-	// ==========================================
-	// [NEW - Milestone 4]: POLICIES
-	// ==========================================
-	r.Methods(http.MethodPost).Path("/policies").Handler(httptransport.NewServer(
+	// Policies
+	protected.Methods(http.MethodPost).Path("/policies").Handler(httptransport.NewServer(
 		e.CreatePolicy,
 		decodeCreatePolicyRequest,
 		encodeResponse,
 		options...,
 	))
-	r.Methods(http.MethodGet).Path("/policies/{id}").Handler(httptransport.NewServer(
+	protected.Methods(http.MethodGet).Path("/policies/{id}").Handler(httptransport.NewServer(
 		e.GetPolicy,
 		decodeGetPolicyRequest,
 		encodeResponse,
 		options...,
 	))
-	r.Methods(http.MethodPost).Path("/policies/{id}/run").Handler(httptransport.NewServer(
+	protected.Methods(http.MethodPost).Path("/policies/{id}/run").Handler(httptransport.NewServer(
 		e.RunPolicy,
 		decodeRunPolicyRequest,
 		encodeResponse,
 		options...,
 	))
-	r.Methods(http.MethodGet).Path("/policies/{id}/run/{run_id}/status").Handler(httptransport.NewServer(
+	protected.Methods(http.MethodGet).Path("/policies/{id}/run/{run_id}/status").Handler(httptransport.NewServer(
 		e.GetPolicyRunStatus,
 		decodeGetPolicyRunStatusRequest,
 		encodeResponse,
@@ -100,6 +112,58 @@ func NewHTTPHandler(e endpoint.Endpoints, logger log.Logger) http.Handler {
 	))
 
 	return r
+}
+
+// ==========================================
+// AUTH MIDDLEWARE
+// ==========================================
+
+func authAndRBACMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing or invalid authorization header"})
+			return
+		}
+
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		claims := &service.JWTClaims{}
+
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return service.JWTSecret, nil
+		})
+
+		if err != nil || !token.Valid {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired token"})
+			return
+		}
+
+		// Enforce RBAC: Non-admin users cannot trigger mutation/execution requests (POST)
+		if r.Method == http.MethodPost && claims.Role != "admin" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "forbidden: viewer role is restricted to read-only access"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ==========================================
+// AUTH DECODERS
+// ==========================================
+
+func decodeLoginRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var req endpoint.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, err
+	}
+	return req, nil
 }
 
 // ==========================================
@@ -213,6 +277,10 @@ func decodeGetPolicyRunStatusRequest(_ context.Context, r *http.Request) (interf
 	}
 	return endpoint.GetPolicyRunStatusRequest{PolicyID: policyID, RunID: runID}, nil
 }
+
+// ==========================================
+// ENCODERS & HELPERS
+// ==========================================
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json")

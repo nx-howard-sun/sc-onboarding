@@ -9,6 +9,7 @@ import (
 	"security-central/ent/policyaudit"
 	"security-central/ent/policyrun"
 	"security-central/ent/schema"
+	"security-central/ent/user"
 	"security-central/ent/vminventory"
 	"time"
 )
@@ -103,6 +104,20 @@ func init() {
 	policyrunDescStartedAt := policyrunFields[3].Descriptor()
 	// policyrun.DefaultStartedAt holds the default value on creation for the started_at field.
 	policyrun.DefaultStartedAt = policyrunDescStartedAt.Default.(func() time.Time)
+	userFields := schema.User{}.Fields()
+	_ = userFields
+	// userDescUsername is the schema descriptor for username field.
+	userDescUsername := userFields[0].Descriptor()
+	// user.UsernameValidator is a validator for the "username" field. It is called by the builders before save.
+	user.UsernameValidator = userDescUsername.Validators[0].(func(string) error)
+	// userDescPassword is the schema descriptor for password field.
+	userDescPassword := userFields[1].Descriptor()
+	// user.PasswordValidator is a validator for the "password" field. It is called by the builders before save.
+	user.PasswordValidator = userDescPassword.Validators[0].(func(string) error)
+	// userDescRole is the schema descriptor for role field.
+	userDescRole := userFields[2].Descriptor()
+	// user.DefaultRole holds the default value on creation for the role field.
+	user.DefaultRole = userDescRole.Default.(string)
 	vminventoryFields := schema.VMInventory{}.Fields()
 	_ = vminventoryFields
 	// vminventoryDescName is the schema descriptor for name field.

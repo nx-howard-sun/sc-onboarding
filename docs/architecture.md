@@ -16,6 +16,11 @@
 - `internal/worker`: gRPC server and client for async audit execution.
 - `ent/schema`: database schema definitions and migration source of truth.
 
+Auth-specific flow components:
+- `POST /login` endpoint issues JWT tokens.
+- HTTP middleware validates JWT for protected routes.
+- Middleware enforces RBAC (`admin` can POST/GET, `viewer` is GET-only).
+
 Request flow:
 1. HTTP request enters go-kit HTTP server.
 2. Transport decoder maps JSON + path params to typed request.
@@ -63,13 +68,20 @@ Request flow:
 - `audit_run_ids` (JSON array of child audit run IDs)
 - `started_at`, `completed_at` (nullable)
 
+### `users`
+- `id` (int, PK)
+- `username` (string, unique)
+- `password` (base64-encoded string per assignment requirement)
+- `role` (`admin` or `viewer`)
+
 ## SQL Execution Safety Assumptions (Milestone 1)
 - Only `SELECT` queries are allowed for audit SQL.
 - Single statement only (no semicolon-delimited multi-statements).
 - Query result is expected to be a single scalar value (1 row, 1 column).
 - Evaluation is type-aware based on each query's `expected_result.type`.
 
-## API Mapping (Milestone 1-4)
+## API Mapping (Milestone 1-5)
+- `POST /login` -> authenticate user and return JWT
 - `POST /audits` -> create audit
 - `GET /audits/{id}` -> fetch audit
 - `POST /audits/{id}/run` -> asynchronous dispatch to gRPC worker
@@ -81,8 +93,13 @@ Request flow:
 - `POST /policies/{id}/run` -> start policy execution (creates child audit runs + async dispatch)
 - `GET /policies/{id}/run/{run_id}/status` -> aggregate policy status + child run details
 
+Authorization behavior:
+- All endpoints except `POST /login` require Bearer JWT.
+- `viewer` role is restricted from POST endpoints.
+- `admin` role can call both GET and POST endpoints.
+
 ## Extendability by Milestone
 - Milestone 2: move `queries` JSON into normalized `audit_queries` table if you need stronger query-level indexing/history.
 - Milestone 3: implemented gRPC worker for asynchronous execution.
 - Milestone 4: implemented `policies` + `policy_runs` and policy-level aggregate status evaluation.
-- Milestone 5: add auth middleware in transport layer and role checks per endpoint.
+- Milestone 5: implemented JWT auth, startup default users, and transport-layer RBAC enforcement.

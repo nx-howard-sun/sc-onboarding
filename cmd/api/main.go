@@ -9,11 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"entgo.io/ent/dialect"
-	entsql "entgo.io/ent/dialect/sql"
-	"github.com/go-kit/kit/log"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"security-central/ent"
 	"security-central/internal/db"
 	"security-central/internal/endpoint"
@@ -22,6 +17,12 @@ import (
 	"security-central/internal/transport"
 	"security-central/internal/worker"
 	auditpb "security-central/proto"
+
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
+	"github.com/go-kit/kit/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -65,6 +66,10 @@ func main() {
 	svc := service.New(repo, workerClient)
 	eps := endpoint.New(svc)
 	handler := transport.NewHTTPHandler(eps, logger)
+
+	if err := svc.EnsureDefaultUsers(ctx); err != nil {
+		_ = logger.Log("error", fmt.Sprintf("failed to seed users: %v", err))
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {

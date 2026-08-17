@@ -5,6 +5,7 @@ go 1.26.5
 require (
 	entgo.io/ent v0.14.6
 	github.com/go-kit/kit v0.13.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.3
 	google.golang.org/grpc v1.76.0

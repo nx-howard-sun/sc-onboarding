@@ -12,6 +12,7 @@ import (
 	"security-central/ent/issue"
 	"security-central/ent/policyaudit"
 	"security-central/ent/policyrun"
+	"security-central/ent/user"
 	"security-central/internal/model"
 )
 
@@ -35,6 +36,10 @@ type Repository interface {
 	CreatePolicyRun(ctx context.Context, policyID int, auditRunIDs []int) (*model.PolicyRun, error)
 	GetPolicyRun(ctx context.Context, runID int) (*model.PolicyRun, error)
 	UpdatePolicyRunStatus(ctx context.Context, runID int, status string) (*model.PolicyRun, error)
+
+	// User Management
+	CreateUser(ctx context.Context, username, base64Password, role string) (*model.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
 
 	// SQL Runner
 	RunScalarQuery(ctx context.Context, query string) (string, error)
@@ -227,6 +232,31 @@ func (r *EntRepository) UpdatePolicyRunStatus(ctx context.Context, runID int, st
 		return nil, err
 	}
 	return toPolicyRun(row), nil
+}
+
+// ==========================================
+// USER MANAGEMENT
+// ==========================================
+func (r *EntRepository) CreateUser(ctx context.Context, username, base64Password, role string) (*model.User, error) {
+	row, err := r.client.User.Create().
+		SetUsername(username).
+		SetPassword(base64Password).
+		SetRole(role).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &model.User{ID: row.ID, Username: row.Username, Password: row.Password, Role: row.Role}, nil
+}
+
+func (r *EntRepository) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
+	row, err := r.client.User.Query().
+		Where(user.UsernameEQ(username)).
+		Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &model.User{ID: row.ID, Username: row.Username, Password: row.Password, Role: row.Role}, nil
 }
 
 func toAudit(a *ent.Audit) *model.Audit {

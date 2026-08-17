@@ -20,6 +20,17 @@ type Endpoints struct {
 	GetPolicy          endpoint.Endpoint
 	RunPolicy          endpoint.Endpoint
 	GetPolicyRunStatus endpoint.Endpoint
+	Login              endpoint.Endpoint
+}
+
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Token string `json:"token,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 type CreateAuditRequest struct {
@@ -79,6 +90,7 @@ func New(svc service.Service) Endpoints {
 		GetPolicy:          makeGetPolicyEndpoint(svc),
 		RunPolicy:          makeRunPolicyEndpoint(svc),
 		GetPolicyRunStatus: makeGetPolicyRunStatusEndpoint(svc),
+		Login:              makeLoginEndpoint(svc),
 	}
 }
 
@@ -155,5 +167,16 @@ func makeGetPolicyRunStatusEndpoint(svc service.Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(GetPolicyRunStatusRequest)
 		return svc.GetPolicyRunStatus(ctx, req.PolicyID, req.RunID)
+	}
+}
+
+func makeLoginEndpoint(svc service.Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(LoginRequest)
+		token, err := svc.Login(ctx, req.Username, req.Password)
+		if err != nil {
+			return LoginResponse{Error: err.Error()}, nil
+		}
+		return LoginResponse{Token: token}, nil
 	}
 }

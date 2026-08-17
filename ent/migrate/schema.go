@@ -110,6 +110,19 @@ var (
 		Columns:    PolicyRunsColumns,
 		PrimaryKey: []*schema.Column{PolicyRunsColumns[0]},
 	}
+	// UsersColumns holds the columns for the "users" table.
+	UsersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "username", Type: field.TypeString, Unique: true},
+		{Name: "password", Type: field.TypeString},
+		{Name: "role", Type: field.TypeString, Default: "viewer"},
+	}
+	// UsersTable holds the schema information for the "users" table.
+	UsersTable = &schema.Table{
+		Name:       "users",
+		Columns:    UsersColumns,
+		PrimaryKey: []*schema.Column{UsersColumns[0]},
+	}
 	// VMInventoryColumns holds the columns for the "vm_inventory" table.
 	VMInventoryColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -133,6 +146,7 @@ var (
 		IssuesTable,
 		PoliciesTable,
 		PolicyRunsTable,
+		UsersTable,
 		VMInventoryTable,
 	}
 )

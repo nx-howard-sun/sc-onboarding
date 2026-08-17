@@ -2,17 +2,22 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"security-central/internal/model"
 	"security-central/internal/repository"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var selectOnlyRegex = regexp.MustCompile(`(?is)^\s*select\s+`)
+var JWTSecret = []byte("your-256-bit-secret-key-security-central")
 
 type Service interface {
 	CreateAudit(ctx context.Context, req CreateAuditRequest) (*model.Audit, error)
@@ -26,6 +31,14 @@ type Service interface {
 	GetPolicy(ctx context.Context, id int) (*model.Policy, error)
 	RunPolicy(ctx context.Context, policyID int) (*RunPolicyResponse, error)
 	GetPolicyRunStatus(ctx context.Context, policyID, runID int) (*model.PolicyRunDetail, error)
+	Login(ctx context.Context, username, password string) (string, error)
+	EnsureDefaultUsers(ctx context.Context) error
+}
+
+type JWTClaims struct {
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	jwt.RegisteredClaims
 }
 
 type CreateAuditRequest struct {
@@ -313,6 +326,49 @@ func (s *securityCentralService) GetPolicyRunStatus(ctx context.Context, policyI
 		PolicyRun: *policyRun,
 		AuditRuns: auditRuns,
 	}, nil
+}
+
+func (s *securityCentralService) Login(ctx context.Context, username, password string) (string, error) {
+	u, err := s.repo.GetUserByUsername(ctx, username)
+	if err != nil {
+		return "", errors.New("invalid credentials")
+	}
+
+	// Password validation (Base64 encoding per requirement)
+	encodedInput := base64.StdEncoding.EncodeToString([]byte(password))
+	if u.Password != encodedInput {
+		return "", errors.New("invalid credentials")
+	}
+
+	// Generate JWT Token valid for 24 hours
+	claims := JWTClaims{
+		Username: u.Username,
+		Role:     u.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(JWTSecret)
+}
+
+// EnsureDefaultUsers seeds default admin and viewer accounts on startup if missing
+func (s *securityCentralService) EnsureDefaultUsers(ctx context.Context) error {
+	// Admin (password: "admin123")
+	if _, err := s.repo.GetUserByUsername(ctx, "admin"); err != nil {
+		adminPass := base64.StdEncoding.EncodeToString([]byte("admin123"))
+		_, _ = s.repo.CreateUser(ctx, "admin", adminPass, "admin")
+	}
+
+	// Viewer (password: "viewer123")
+	if _, err := s.repo.GetUserByUsername(ctx, "viewer"); err != nil {
+		viewerPass := base64.StdEncoding.EncodeToString([]byte("viewer123"))
+		_, _ = s.repo.CreateUser(ctx, "viewer", viewerPass, "viewer")
+	}
+
+	return nil
 }
 
 func validateSQLQuery(query string) error {

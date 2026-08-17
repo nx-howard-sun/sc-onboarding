@@ -6,6 +6,7 @@ Implementation using:
 - Ent (ORM + schema migration)
 - PostgreSQL
 - gRPC (async worker for audit execution)
+- JWT Authentication + Role-based Authorization (Milestone 5)
 
 ## Architecture
 
@@ -16,10 +17,10 @@ This project uses a layered design so each part has one responsibility:
 - **Endpoint layer**: `internal/endpoint/endpoint.go`  
   go-kit adapter layer. Converts transport requests into service calls.
 - **Service layer**: `internal/service/service.go`  
-  Business logic (validation, async run dispatch, policy orchestration, issue creation).
+  Business logic (validation, async run dispatch, policy orchestration, issue creation, auth/token generation).
 - **Repository layer**: `internal/repository/repository.go`  
   Data-access layer for persistence and query execution.
-  - Uses **Ent** for CRUD on our own entities (`audits`, `audit_runs`, `issues`, `policies`, `policy_runs`).
+  - Uses **Ent** for CRUD on our own entities (`audits`, `audit_runs`, `issues`, `policies`, `policy_runs`, `users`).
   - Uses `database/sql` for executing the dynamic audit SQL query itself.
 - **Schema layer**: `ent/schema/*.go`  
   Table definitions; Ent generates DB/query code from these schemas.
@@ -94,6 +95,10 @@ go run ./cmd/api
 Server starts on `http://localhost:8080` by default (or `PORT` env var if set).  
 API connects to worker at `AUDIT_WORKER_ADDR` (default `localhost:9090`).
 
+On startup, the API seeds default users if they do not exist:
+- admin / `admin123` (role: `admin`)
+- viewer / `viewer123` (role: `viewer`)
+
 ### 7) (Optional) Seed example table for demo audit
 
 The service auto-creates tables from Ent schemas on startup, including:
@@ -103,8 +108,13 @@ The service auto-creates tables from Ent schemas on startup, including:
 - `vm_inventory`
 - `policies`
 - `policy_runs`
+- `users`
 
 ## Run APIs Manually
+
+### Auth Endpoint (Milestone 5)
+
+- `POST /login`
 
 ### Audit + Issue Endpoints
 
@@ -144,6 +154,19 @@ All responses are JSON.
 - `GET /policies/{id}/run/{run_id}/status` returns:
   - policy run metadata (`status`, `started_at`, `completed_at`, `audit_run_ids`)
   - expanded `audit_runs` array with child run status details
+
+### Milestone 5 Authentication & Authorization
+
+- `/login` is public (no token required).
+- All other endpoints require `Authorization: Bearer <jwt-token>`.
+- JWT includes username and role claims and expires in 24 hours.
+- Role rules:
+  - `admin`: can call all GET/POST endpoints.
+  - `viewer`: read-only; can call GET endpoints only.
+- POST requests from non-admin users return `403 Forbidden`.
+
+Note: passwords are base64-encoded to satisfy assignment requirements.  
+This is not secure hashing and should be replaced with a real password hash (e.g. bcrypt/argon2) in production.
 
 ### Sample request: create audit (multi-query)
 
@@ -221,4 +244,31 @@ curl -X POST http://localhost:8080/policies/1/run
 
 ```bash
 curl http://localhost:8080/policies/1/run/1/status
+```
+
+### Sample request: login (admin)
+
+```bash
+curl -X POST http://localhost:8080/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username":"admin",
+    "password":"admin123"
+  }'
+```
+
+Example response:
+
+```json
+{
+  "token": "<jwt-token>"
+}
+```
+
+### Sample request: call protected endpoint with JWT
+
+```bash
+TOKEN="<jwt-token>"
+curl http://localhost:8080/issues/list \
+  -H "Authorization: Bearer ${TOKEN}"
 ```

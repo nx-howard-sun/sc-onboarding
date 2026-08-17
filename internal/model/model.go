@@ -66,3 +66,11 @@ type PolicyRunDetail struct {
 	PolicyRun
 	AuditRuns []AuditRun `json:"audit_runs"`
 }
+
+// User represents an authenticated system user
+type User struct {
+	ID       int    `json:"id"`
+	Username string `json:"username"`
+	Password string `json:"-"` // Omit password from JSON serialization
+	Role     string `json:"role"`
+}
