@@ -81,6 +81,35 @@ var (
 			},
 		},
 	}
+	// PoliciesColumns holds the columns for the "policies" table.
+	PoliciesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "audit_ids", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// PoliciesTable holds the schema information for the "policies" table.
+	PoliciesTable = &schema.Table{
+		Name:       "policies",
+		Columns:    PoliciesColumns,
+		PrimaryKey: []*schema.Column{PoliciesColumns[0]},
+	}
+	// PolicyRunsColumns holds the columns for the "policy_runs" table.
+	PolicyRunsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "policy_id", Type: field.TypeInt},
+		{Name: "status", Type: field.TypeString, Default: "running"},
+		{Name: "audit_run_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "started_at", Type: field.TypeTime},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
+	}
+	// PolicyRunsTable holds the schema information for the "policy_runs" table.
+	PolicyRunsTable = &schema.Table{
+		Name:       "policy_runs",
+		Columns:    PolicyRunsColumns,
+		PrimaryKey: []*schema.Column{PolicyRunsColumns[0]},
+	}
 	// VMInventoryColumns holds the columns for the "vm_inventory" table.
 	VMInventoryColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -102,6 +131,8 @@ var (
 		AuditsTable,
 		AuditRunsTable,
 		IssuesTable,
+		PoliciesTable,
+		PolicyRunsTable,
 		VMInventoryTable,
 	}
 )
@@ -110,6 +141,9 @@ func init() {
 	AuditRunsTable.ForeignKeys[0].RefTable = AuditsTable
 	IssuesTable.ForeignKeys[0].RefTable = AuditsTable
 	IssuesTable.ForeignKeys[1].RefTable = AuditRunsTable
+	PoliciesTable.Annotation = &entsql.Annotation{
+		Table: "policies",
+	}
 	VMInventoryTable.Annotation = &entsql.Annotation{
 		Table: "vm_inventory",
 	}

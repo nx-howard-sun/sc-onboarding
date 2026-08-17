@@ -14,6 +14,8 @@ import (
 	"security-central/ent/audit"
 	"security-central/ent/auditrun"
 	"security-central/ent/issue"
+	"security-central/ent/policyaudit"
+	"security-central/ent/policyrun"
 	"security-central/ent/vminventory"
 
 	"entgo.io/ent"
@@ -33,6 +35,10 @@ type Client struct {
 	AuditRun *AuditRunClient
 	// Issue is the client for interacting with the Issue builders.
 	Issue *IssueClient
+	// PolicyAudit is the client for interacting with the PolicyAudit builders.
+	PolicyAudit *PolicyAuditClient
+	// PolicyRun is the client for interacting with the PolicyRun builders.
+	PolicyRun *PolicyRunClient
 	// VMInventory is the client for interacting with the VMInventory builders.
 	VMInventory *VMInventoryClient
 }
@@ -49,6 +55,8 @@ func (c *Client) init() {
 	c.Audit = NewAuditClient(c.config)
 	c.AuditRun = NewAuditRunClient(c.config)
 	c.Issue = NewIssueClient(c.config)
+	c.PolicyAudit = NewPolicyAuditClient(c.config)
+	c.PolicyRun = NewPolicyRunClient(c.config)
 	c.VMInventory = NewVMInventoryClient(c.config)
 }
 
@@ -145,6 +153,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Audit:       NewAuditClient(cfg),
 		AuditRun:    NewAuditRunClient(cfg),
 		Issue:       NewIssueClient(cfg),
+		PolicyAudit: NewPolicyAuditClient(cfg),
+		PolicyRun:   NewPolicyRunClient(cfg),
 		VMInventory: NewVMInventoryClient(cfg),
 	}, nil
 }
@@ -168,6 +178,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Audit:       NewAuditClient(cfg),
 		AuditRun:    NewAuditRunClient(cfg),
 		Issue:       NewIssueClient(cfg),
+		PolicyAudit: NewPolicyAuditClient(cfg),
+		PolicyRun:   NewPolicyRunClient(cfg),
 		VMInventory: NewVMInventoryClient(cfg),
 	}, nil
 }
@@ -197,19 +209,21 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.Audit.Use(hooks...)
-	c.AuditRun.Use(hooks...)
-	c.Issue.Use(hooks...)
-	c.VMInventory.Use(hooks...)
+	for _, n := range []interface{ Use(...Hook) }{
+		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.VMInventory,
+	} {
+		n.Use(hooks...)
+	}
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.Audit.Intercept(interceptors...)
-	c.AuditRun.Intercept(interceptors...)
-	c.Issue.Intercept(interceptors...)
-	c.VMInventory.Intercept(interceptors...)
+	for _, n := range []interface{ Intercept(...Interceptor) }{
+		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.VMInventory,
+	} {
+		n.Intercept(interceptors...)
+	}
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -221,6 +235,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AuditRun.mutate(ctx, m)
 	case *IssueMutation:
 		return c.Issue.mutate(ctx, m)
+	case *PolicyAuditMutation:
+		return c.PolicyAudit.mutate(ctx, m)
+	case *PolicyRunMutation:
+		return c.PolicyRun.mutate(ctx, m)
 	case *VMInventoryMutation:
 		return c.VMInventory.mutate(ctx, m)
 	default:
@@ -723,6 +741,272 @@ func (c *IssueClient) mutate(ctx context.Context, m *IssueMutation) (Value, erro
 	}
 }
 
+// PolicyAuditClient is a client for the PolicyAudit schema.
+type PolicyAuditClient struct {
+	config
+}
+
+// NewPolicyAuditClient returns a client for the PolicyAudit from the given config.
+func NewPolicyAuditClient(c config) *PolicyAuditClient {
+	return &PolicyAuditClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `policyaudit.Hooks(f(g(h())))`.
+func (c *PolicyAuditClient) Use(hooks ...Hook) {
+	c.hooks.PolicyAudit = append(c.hooks.PolicyAudit, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `policyaudit.Intercept(f(g(h())))`.
+func (c *PolicyAuditClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PolicyAudit = append(c.inters.PolicyAudit, interceptors...)
+}
+
+// Create returns a builder for creating a PolicyAudit entity.
+func (c *PolicyAuditClient) Create() *PolicyAuditCreate {
+	mutation := newPolicyAuditMutation(c.config, OpCreate)
+	return &PolicyAuditCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PolicyAudit entities.
+func (c *PolicyAuditClient) CreateBulk(builders ...*PolicyAuditCreate) *PolicyAuditCreateBulk {
+	return &PolicyAuditCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PolicyAuditClient) MapCreateBulk(slice any, setFunc func(*PolicyAuditCreate, int)) *PolicyAuditCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PolicyAuditCreateBulk{err: fmt.Errorf("calling to PolicyAuditClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PolicyAuditCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PolicyAuditCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PolicyAudit.
+func (c *PolicyAuditClient) Update() *PolicyAuditUpdate {
+	mutation := newPolicyAuditMutation(c.config, OpUpdate)
+	return &PolicyAuditUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PolicyAuditClient) UpdateOne(_m *PolicyAudit) *PolicyAuditUpdateOne {
+	mutation := newPolicyAuditMutation(c.config, OpUpdateOne, withPolicyAudit(_m))
+	return &PolicyAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PolicyAuditClient) UpdateOneID(id int) *PolicyAuditUpdateOne {
+	mutation := newPolicyAuditMutation(c.config, OpUpdateOne, withPolicyAuditID(id))
+	return &PolicyAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PolicyAudit.
+func (c *PolicyAuditClient) Delete() *PolicyAuditDelete {
+	mutation := newPolicyAuditMutation(c.config, OpDelete)
+	return &PolicyAuditDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PolicyAuditClient) DeleteOne(_m *PolicyAudit) *PolicyAuditDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PolicyAuditClient) DeleteOneID(id int) *PolicyAuditDeleteOne {
+	builder := c.Delete().Where(policyaudit.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PolicyAuditDeleteOne{builder}
+}
+
+// Query returns a query builder for PolicyAudit.
+func (c *PolicyAuditClient) Query() *PolicyAuditQuery {
+	return &PolicyAuditQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePolicyAudit},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PolicyAudit entity by its id.
+func (c *PolicyAuditClient) Get(ctx context.Context, id int) (*PolicyAudit, error) {
+	return c.Query().Where(policyaudit.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PolicyAuditClient) GetX(ctx context.Context, id int) *PolicyAudit {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PolicyAuditClient) Hooks() []Hook {
+	return c.hooks.PolicyAudit
+}
+
+// Interceptors returns the client interceptors.
+func (c *PolicyAuditClient) Interceptors() []Interceptor {
+	return c.inters.PolicyAudit
+}
+
+func (c *PolicyAuditClient) mutate(ctx context.Context, m *PolicyAuditMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PolicyAuditCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PolicyAuditUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PolicyAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PolicyAuditDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PolicyAudit mutation op: %q", m.Op())
+	}
+}
+
+// PolicyRunClient is a client for the PolicyRun schema.
+type PolicyRunClient struct {
+	config
+}
+
+// NewPolicyRunClient returns a client for the PolicyRun from the given config.
+func NewPolicyRunClient(c config) *PolicyRunClient {
+	return &PolicyRunClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `policyrun.Hooks(f(g(h())))`.
+func (c *PolicyRunClient) Use(hooks ...Hook) {
+	c.hooks.PolicyRun = append(c.hooks.PolicyRun, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `policyrun.Intercept(f(g(h())))`.
+func (c *PolicyRunClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PolicyRun = append(c.inters.PolicyRun, interceptors...)
+}
+
+// Create returns a builder for creating a PolicyRun entity.
+func (c *PolicyRunClient) Create() *PolicyRunCreate {
+	mutation := newPolicyRunMutation(c.config, OpCreate)
+	return &PolicyRunCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PolicyRun entities.
+func (c *PolicyRunClient) CreateBulk(builders ...*PolicyRunCreate) *PolicyRunCreateBulk {
+	return &PolicyRunCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PolicyRunClient) MapCreateBulk(slice any, setFunc func(*PolicyRunCreate, int)) *PolicyRunCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PolicyRunCreateBulk{err: fmt.Errorf("calling to PolicyRunClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PolicyRunCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PolicyRunCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PolicyRun.
+func (c *PolicyRunClient) Update() *PolicyRunUpdate {
+	mutation := newPolicyRunMutation(c.config, OpUpdate)
+	return &PolicyRunUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PolicyRunClient) UpdateOne(_m *PolicyRun) *PolicyRunUpdateOne {
+	mutation := newPolicyRunMutation(c.config, OpUpdateOne, withPolicyRun(_m))
+	return &PolicyRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PolicyRunClient) UpdateOneID(id int) *PolicyRunUpdateOne {
+	mutation := newPolicyRunMutation(c.config, OpUpdateOne, withPolicyRunID(id))
+	return &PolicyRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PolicyRun.
+func (c *PolicyRunClient) Delete() *PolicyRunDelete {
+	mutation := newPolicyRunMutation(c.config, OpDelete)
+	return &PolicyRunDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PolicyRunClient) DeleteOne(_m *PolicyRun) *PolicyRunDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PolicyRunClient) DeleteOneID(id int) *PolicyRunDeleteOne {
+	builder := c.Delete().Where(policyrun.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PolicyRunDeleteOne{builder}
+}
+
+// Query returns a query builder for PolicyRun.
+func (c *PolicyRunClient) Query() *PolicyRunQuery {
+	return &PolicyRunQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePolicyRun},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PolicyRun entity by its id.
+func (c *PolicyRunClient) Get(ctx context.Context, id int) (*PolicyRun, error) {
+	return c.Query().Where(policyrun.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PolicyRunClient) GetX(ctx context.Context, id int) *PolicyRun {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PolicyRunClient) Hooks() []Hook {
+	return c.hooks.PolicyRun
+}
+
+// Interceptors returns the client interceptors.
+func (c *PolicyRunClient) Interceptors() []Interceptor {
+	return c.inters.PolicyRun
+}
+
+func (c *PolicyRunClient) mutate(ctx context.Context, m *PolicyRunMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PolicyRunCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PolicyRunUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PolicyRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PolicyRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PolicyRun mutation op: %q", m.Op())
+	}
+}
+
 // VMInventoryClient is a client for the VMInventory schema.
 type VMInventoryClient struct {
 	config
@@ -859,9 +1143,9 @@ func (c *VMInventoryClient) mutate(ctx context.Context, m *VMInventoryMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Audit, AuditRun, Issue, VMInventory []ent.Hook
+		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, VMInventory []ent.Hook
 	}
 	inters struct {
-		Audit, AuditRun, Issue, VMInventory []ent.Interceptor
+		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, VMInventory []ent.Interceptor
 	}
 )

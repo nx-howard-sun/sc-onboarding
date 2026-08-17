@@ -18,6 +18,10 @@ type Tx struct {
 	AuditRun *AuditRunClient
 	// Issue is the client for interacting with the Issue builders.
 	Issue *IssueClient
+	// PolicyAudit is the client for interacting with the PolicyAudit builders.
+	PolicyAudit *PolicyAuditClient
+	// PolicyRun is the client for interacting with the PolicyRun builders.
+	PolicyRun *PolicyRunClient
 	// VMInventory is the client for interacting with the VMInventory builders.
 	VMInventory *VMInventoryClient
 
@@ -154,6 +158,8 @@ func (tx *Tx) init() {
 	tx.Audit = NewAuditClient(tx.config)
 	tx.AuditRun = NewAuditRunClient(tx.config)
 	tx.Issue = NewIssueClient(tx.config)
+	tx.PolicyAudit = NewPolicyAuditClient(tx.config)
+	tx.PolicyRun = NewPolicyRunClient(tx.config)
 	tx.VMInventory = NewVMInventoryClient(tx.config)
 }
 

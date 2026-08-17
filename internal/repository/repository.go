@@ -10,18 +10,33 @@ import (
 	"security-central/ent/audit"
 	"security-central/ent/auditrun"
 	"security-central/ent/issue"
+	"security-central/ent/policyaudit"
+	"security-central/ent/policyrun"
 	"security-central/internal/model"
 )
 
 type Repository interface {
+	// Audit & Execution
 	CreateAudit(ctx context.Context, name string, queries []model.QueryRule) (*model.Audit, error)
 	GetAudit(ctx context.Context, id int) (*model.Audit, error)
 	CreateAuditRun(ctx context.Context, auditID int) (*model.AuditRun, error)
 	UpdateAuditRunResult(ctx context.Context, runID int, status string, actualValue *string, errMsg *string) (*model.AuditRun, error)
 	GetAuditRun(ctx context.Context, auditID, runID int) (*model.AuditRun, error)
+	GetAuditRunsByIDs(ctx context.Context, ids []int) ([]model.AuditRun, error)
+
+	// Issues
 	CreateIssue(ctx context.Context, auditID, runID int, queryName, expectedValue, actualValue, description string) (*model.Issue, error)
 	ListIssues(ctx context.Context, page, pageSize int) ([]model.Issue, error)
 	GetIssue(ctx context.Context, id int) (*model.Issue, error)
+
+	// Policy Management
+	CreatePolicy(ctx context.Context, name string, auditIDs []int) (*model.Policy, error)
+	GetPolicy(ctx context.Context, id int) (*model.Policy, error)
+	CreatePolicyRun(ctx context.Context, policyID int, auditRunIDs []int) (*model.PolicyRun, error)
+	GetPolicyRun(ctx context.Context, runID int) (*model.PolicyRun, error)
+	UpdatePolicyRunStatus(ctx context.Context, runID int, status string) (*model.PolicyRun, error)
+
+	// SQL Runner
 	RunScalarQuery(ctx context.Context, query string) (string, error)
 }
 
@@ -89,6 +104,20 @@ func (r *EntRepository) GetAuditRun(ctx context.Context, auditID, runID int) (*m
 	return toAuditRun(row), nil
 }
 
+func (r *EntRepository) GetAuditRunsByIDs(ctx context.Context, ids []int) ([]model.AuditRun, error) {
+	rows, err := r.client.AuditRun.Query().
+		Where(auditrun.IDIn(ids...)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]model.AuditRun, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, *toAuditRun(row))
+	}
+	return out, nil
+}
+
 func (r *EntRepository) CreateIssue(ctx context.Context, auditID, runID int, queryName, expectedValue, actualValue, description string) (*model.Issue, error) {
 	row, err := r.client.Issue.Create().
 		SetAuditID(auditID).
@@ -141,6 +170,65 @@ func (r *EntRepository) RunScalarQuery(ctx context.Context, query string) (strin
 	return fmt.Sprint(value), nil
 }
 
+// ==========================================
+// POLICIES
+// ==========================================
+
+func (r *EntRepository) CreatePolicy(ctx context.Context, name string, auditIDs []int) (*model.Policy, error) {
+	row, err := r.client.PolicyAudit.Create().
+		SetName(name).
+		SetAuditIds(auditIDs).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toPolicy(row), nil
+}
+
+func (r *EntRepository) GetPolicy(ctx context.Context, id int) (*model.Policy, error) {
+	row, err := r.client.PolicyAudit.Query().
+		Where(policyaudit.IDEQ(id)).
+		Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toPolicy(row), nil
+}
+
+func (r *EntRepository) CreatePolicyRun(ctx context.Context, policyID int, auditRunIDs []int) (*model.PolicyRun, error) {
+	row, err := r.client.PolicyRun.Create().
+		SetPolicyID(policyID).
+		SetAuditRunIds(auditRunIDs).
+		SetStatus("running").
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toPolicyRun(row), nil
+}
+
+func (r *EntRepository) GetPolicyRun(ctx context.Context, runID int) (*model.PolicyRun, error) {
+	row, err := r.client.PolicyRun.Query().
+		Where(policyrun.IDEQ(runID)).
+		Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toPolicyRun(row), nil
+}
+
+func (r *EntRepository) UpdatePolicyRunStatus(ctx context.Context, runID int, status string) (*model.PolicyRun, error) {
+	now := time.Now()
+	row, err := r.client.PolicyRun.UpdateOneID(runID).
+		SetStatus(status).
+		SetCompletedAt(now).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toPolicyRun(row), nil
+}
+
 func toAudit(a *ent.Audit) *model.Audit {
 	return &model.Audit{
 		ID:        a.ID,
@@ -173,5 +261,26 @@ func toIssue(i *ent.Issue) *model.Issue {
 		ActualValue:   i.ActualValue,
 		Description:   i.Description,
 		CreatedAt:     i.CreatedAt,
+	}
+}
+
+func toPolicy(p *ent.PolicyAudit) *model.Policy {
+	return &model.Policy{
+		ID:        p.ID,
+		Name:      p.Name,
+		AuditIDs:  p.AuditIds,
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
+	}
+}
+
+func toPolicyRun(pr *ent.PolicyRun) *model.PolicyRun {
+	return &model.PolicyRun{
+		ID:          pr.ID,
+		PolicyID:    pr.PolicyID,
+		Status:      pr.Status,
+		AuditRunIDs: pr.AuditRunIds,
+		StartedAt:   pr.StartedAt,
+		CompletedAt: pr.CompletedAt,
 	}
 }

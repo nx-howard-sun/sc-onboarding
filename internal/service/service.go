@@ -22,6 +22,10 @@ type Service interface {
 	GetRunStatus(ctx context.Context, auditID, runID int) (*model.AuditRun, error)
 	ListIssues(ctx context.Context, page, pageSize int) ([]model.Issue, error)
 	GetIssue(ctx context.Context, id int) (*model.Issue, error)
+	CreatePolicy(ctx context.Context, req CreatePolicyRequest) (*model.Policy, error)
+	GetPolicy(ctx context.Context, id int) (*model.Policy, error)
+	RunPolicy(ctx context.Context, policyID int) (*RunPolicyResponse, error)
+	GetPolicyRunStatus(ctx context.Context, policyID, runID int) (*model.PolicyRunDetail, error)
 }
 
 type CreateAuditRequest struct {
@@ -33,6 +37,17 @@ type RunAuditResponse struct {
 	Run      *model.AuditRun `json:"run"`
 	Accepted bool            `json:"accepted"`
 	Message  string          `json:"message,omitempty"`
+}
+
+type CreatePolicyRequest struct {
+	Name     string `json:"name"`
+	AuditIDs []int  `json:"audit_ids"`
+}
+
+type RunPolicyResponse struct {
+	Run      *model.PolicyRun `json:"run"`
+	Accepted bool             `json:"accepted"`
+	Message  string           `json:"message,omitempty"`
 }
 
 type AuditExecutor interface {
@@ -171,6 +186,133 @@ func (s *securityCentralService) ListIssues(ctx context.Context, page, pageSize 
 
 func (s *securityCentralService) GetIssue(ctx context.Context, id int) (*model.Issue, error) {
 	return s.repo.GetIssue(ctx, id)
+}
+
+// CreatePolicy validates and creates a new policy grouping multiple audit IDs.
+func (s *securityCentralService) CreatePolicy(ctx context.Context, req CreatePolicyRequest) (*model.Policy, error) {
+	if strings.TrimSpace(req.Name) == "" {
+		return nil, errors.New("policy name is required")
+	}
+	if len(req.AuditIDs) == 0 {
+		return nil, errors.New("policy must contain at least one audit_id")
+	}
+
+	// Validate that all referenced audit IDs exist in database
+	for _, auditID := range req.AuditIDs {
+		if _, err := s.repo.GetAudit(ctx, auditID); err != nil {
+			return nil, fmt.Errorf("audit id %d not found: %w", auditID, err)
+		}
+	}
+
+	return s.repo.CreatePolicy(ctx, req.Name, req.AuditIDs)
+}
+
+// GetPolicy retrieves a policy definition by ID.
+func (s *securityCentralService) GetPolicy(ctx context.Context, id int) (*model.Policy, error) {
+	return s.repo.GetPolicy(ctx, id)
+}
+
+// RunPolicy triggers execution for all audits grouped within a policy.
+func (s *securityCentralService) RunPolicy(ctx context.Context, policyID int) (*RunPolicyResponse, error) {
+	p, err := s.repo.GetPolicy(ctx, policyID)
+	if err != nil {
+		return nil, fmt.Errorf("policy not found: %w", err)
+	}
+
+	if s.executor == nil {
+		return nil, errors.New("audit executor is not configured")
+	}
+
+	auditRunIDs := make([]int, 0, len(p.AuditIDs))
+	var dispatchErrs []string
+
+	// Loop over all audits in the policy and dispatch each to gRPC worker
+	for _, auditID := range p.AuditIDs {
+		run, err := s.repo.CreateAuditRun(ctx, auditID)
+		if err != nil {
+			dispatchErrs = append(dispatchErrs, fmt.Sprintf("audit %d run creation failed: %v", auditID, err))
+			continue
+		}
+		auditRunIDs = append(auditRunIDs, run.ID)
+
+		// Dispatch individual audit execution via existing AuditExecutor interface
+		if err := s.executor.ExecuteAudit(ctx, auditID, run.ID); err != nil {
+			msg := fmt.Sprintf("failed to dispatch audit run to worker: %v", err)
+			s.repo.UpdateAuditRunResult(ctx, run.ID, "error", nil, &msg)
+			dispatchErrs = append(dispatchErrs, fmt.Sprintf("audit %d dispatch failed: %v", auditID, err))
+		}
+	}
+
+	policyRun, err := s.repo.CreatePolicyRun(ctx, policyID, auditRunIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := fmt.Sprintf("Policy execution started across %d child audits", len(auditRunIDs))
+	if len(dispatchErrs) > 0 {
+		msg += fmt.Sprintf(" (with errors: %s)", strings.Join(dispatchErrs, "; "))
+	}
+
+	return &RunPolicyResponse{
+		Run:      policyRun,
+		Accepted: true,
+		Message:  msg,
+	}, nil
+}
+
+// GetPolicyRunStatus retrieves current status of a policy run and evaluates aggregate status from child runs.
+func (s *securityCentralService) GetPolicyRunStatus(ctx context.Context, policyID, runID int) (*model.PolicyRunDetail, error) {
+	policyRun, err := s.repo.GetPolicyRun(ctx, runID)
+	if err != nil {
+		return nil, fmt.Errorf("policy run not found: %w", err)
+	}
+	if policyRun.PolicyID != policyID {
+		return nil, errors.New("policy_id mismatch for requested run")
+	}
+
+	// Fetch status of all child audit runs
+	auditRuns, err := s.repo.GetAuditRunsByIDs(ctx, policyRun.AuditRunIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch child audit runs: %w", err)
+	}
+
+	// Dynamic status evaluation: If policy run is currently "running", check if all child runs finished
+	if policyRun.Status == "running" && len(auditRuns) > 0 {
+		allCompleted := true
+		hasError := false
+		hasFailed := false
+
+		for _, ar := range auditRuns {
+			switch ar.Status {
+			case "running":
+				allCompleted = false
+			case "error":
+				hasError = true
+			case "failed":
+				hasFailed = true
+			}
+		}
+
+		// Update PolicyRun status once all child audit runs finish
+		if allCompleted {
+			finalStatus := "passed"
+			if hasError {
+				finalStatus = "error"
+			} else if hasFailed {
+				finalStatus = "failed"
+			}
+
+			updatedRun, err := s.repo.UpdatePolicyRunStatus(ctx, runID, finalStatus)
+			if err == nil {
+				policyRun = updatedRun
+			}
+		}
+	}
+
+	return &model.PolicyRunDetail{
+		PolicyRun: *policyRun,
+		AuditRuns: auditRuns,
+	}, nil
 }
 
 func validateSQLQuery(query string) error {

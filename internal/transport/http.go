@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"security-central/internal/endpoint"
+
 	"github.com/go-kit/kit/log"
 	httptransport "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
-	"security-central/internal/endpoint"
 )
 
 type errorResponse struct {
@@ -24,6 +25,10 @@ func NewHTTPHandler(e endpoint.Endpoints, logger log.Logger) http.Handler {
 	options := []httptransport.ServerOption{
 		httptransport.ServerErrorEncoder(encodeError),
 	}
+
+	// ==========================================
+	// AUDITS
+	// ==========================================
 
 	r.Methods(http.MethodPost).Path("/audits").Handler(httptransport.NewServer(
 		e.CreateAudit,
@@ -49,6 +54,10 @@ func NewHTTPHandler(e endpoint.Endpoints, logger log.Logger) http.Handler {
 		encodeResponse,
 		options...,
 	))
+
+	// ==========================================
+	// ISSUES
+	// ==========================================
 	r.Methods(http.MethodGet).Path("/issues/list").Handler(httptransport.NewServer(
 		e.ListIssues,
 		decodeListIssuesRequest,
@@ -62,8 +71,40 @@ func NewHTTPHandler(e endpoint.Endpoints, logger log.Logger) http.Handler {
 		options...,
 	))
 
+	// ==========================================
+	// [NEW - Milestone 4]: POLICIES
+	// ==========================================
+	r.Methods(http.MethodPost).Path("/policies").Handler(httptransport.NewServer(
+		e.CreatePolicy,
+		decodeCreatePolicyRequest,
+		encodeResponse,
+		options...,
+	))
+	r.Methods(http.MethodGet).Path("/policies/{id}").Handler(httptransport.NewServer(
+		e.GetPolicy,
+		decodeGetPolicyRequest,
+		encodeResponse,
+		options...,
+	))
+	r.Methods(http.MethodPost).Path("/policies/{id}/run").Handler(httptransport.NewServer(
+		e.RunPolicy,
+		decodeRunPolicyRequest,
+		encodeResponse,
+		options...,
+	))
+	r.Methods(http.MethodGet).Path("/policies/{id}/run/{run_id}/status").Handler(httptransport.NewServer(
+		e.GetPolicyRunStatus,
+		decodeGetPolicyRunStatusRequest,
+		encodeResponse,
+		options...,
+	))
+
 	return r
 }
+
+// ==========================================
+// AUDIT DECODERS
+// ==========================================
 
 func decodeCreateAuditRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	var req endpoint.CreateAuditRequest
@@ -101,6 +142,10 @@ func decodeGetRunStatusRequest(_ context.Context, r *http.Request) (interface{},
 	return endpoint.GetRunStatusRequest{AuditID: auditID, RunID: runID}, nil
 }
 
+// ==========================================
+// ISSUE DECODERS
+// ==========================================
+
 func decodeListIssuesRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	page := 1
 	pageSize := 20
@@ -127,6 +172,46 @@ func decodeGetIssueRequest(_ context.Context, r *http.Request) (interface{}, err
 		return nil, err
 	}
 	return endpoint.GetIssueRequest{ID: id}, nil
+}
+
+// ==========================================
+// POLICY DECODERS
+// ==========================================
+
+func decodeCreatePolicyRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var req endpoint.CreatePolicyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+func decodeGetPolicyRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	id, err := getPathInt(r, "id")
+	if err != nil {
+		return nil, err
+	}
+	return endpoint.GetPolicyRequest{ID: id}, nil
+}
+
+func decodeRunPolicyRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	id, err := getPathInt(r, "id")
+	if err != nil {
+		return nil, err
+	}
+	return endpoint.RunPolicyRequest{PolicyID: id}, nil
+}
+
+func decodeGetPolicyRunStatusRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	policyID, err := getPathInt(r, "id")
+	if err != nil {
+		return nil, err
+	}
+	runID, err := getPathInt(r, "run_id")
+	if err != nil {
+		return nil, err
+	}
+	return endpoint.GetPolicyRunStatusRequest{PolicyID: policyID, RunID: runID}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {

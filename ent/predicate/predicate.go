@@ -15,5 +15,11 @@ type AuditRun func(*sql.Selector)
 // Issue is the predicate function for issue builders.
 type Issue func(*sql.Selector)
 
+// PolicyAudit is the predicate function for policyaudit builders.
+type PolicyAudit func(*sql.Selector)
+
+// PolicyRun is the predicate function for policyrun builders.
+type PolicyRun func(*sql.Selector)
+
 // VMInventory is the predicate function for vminventory builders.
 type VMInventory func(*sql.Selector)

@@ -41,3 +41,28 @@ type Issue struct {
 	Description   string    `json:"description"`
 	CreatedAt     time.Time `json:"created_at"`
 }
+
+// Policy represents a collection of grouped audits
+type Policy struct {
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
+	AuditIDs  []int     `json:"audit_ids"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// PolicyRun tracks the overall execution status of a policy
+type PolicyRun struct {
+	ID          int        `json:"id"`
+	PolicyID    int        `json:"policy_id"`
+	Status      string     `json:"status"` // running, passed, failed, error
+	AuditRunIDs []int      `json:"audit_run_ids,omitempty"`
+	StartedAt   time.Time  `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+}
+
+// PolicyRunDetail combines a PolicyRun with the full status of all its child audit runs
+type PolicyRunDetail struct {
+	PolicyRun
+	AuditRuns []AuditRun `json:"audit_runs"`
+}

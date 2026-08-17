@@ -44,6 +44,30 @@ func (f IssueFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IssueMutation", m)
 }
 
+// The PolicyAuditFunc type is an adapter to allow the use of ordinary
+// function as PolicyAudit mutator.
+type PolicyAuditFunc func(context.Context, *ent.PolicyAuditMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PolicyAuditFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PolicyAuditMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PolicyAuditMutation", m)
+}
+
+// The PolicyRunFunc type is an adapter to allow the use of ordinary
+// function as PolicyRun mutator.
+type PolicyRunFunc func(context.Context, *ent.PolicyRunMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PolicyRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PolicyRunMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PolicyRunMutation", m)
+}
+
 // The VMInventoryFunc type is an adapter to allow the use of ordinary
 // function as VMInventory mutator.
 type VMInventoryFunc func(context.Context, *ent.VMInventoryMutation) (ent.Value, error)

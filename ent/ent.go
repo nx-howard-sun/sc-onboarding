@@ -10,6 +10,8 @@ import (
 	"security-central/ent/audit"
 	"security-central/ent/auditrun"
 	"security-central/ent/issue"
+	"security-central/ent/policyaudit"
+	"security-central/ent/policyrun"
 	"security-central/ent/vminventory"
 	"sync"
 
@@ -79,6 +81,8 @@ func checkColumn(t, c string) error {
 			audit.Table:       audit.ValidColumn,
 			auditrun.Table:    auditrun.ValidColumn,
 			issue.Table:       issue.ValidColumn,
+			policyaudit.Table: policyaudit.ValidColumn,
+			policyrun.Table:   policyrun.ValidColumn,
 			vminventory.Table: vminventory.ValidColumn,
 		})
 	})

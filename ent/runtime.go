@@ -6,6 +6,8 @@ import (
 	"security-central/ent/audit"
 	"security-central/ent/auditrun"
 	"security-central/ent/issue"
+	"security-central/ent/policyaudit"
+	"security-central/ent/policyrun"
 	"security-central/ent/schema"
 	"security-central/ent/vminventory"
 	"time"
@@ -75,6 +77,32 @@ func init() {
 	issue.DefaultUpdatedAt = issueDescUpdatedAt.Default.(func() time.Time)
 	// issue.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	issue.UpdateDefaultUpdatedAt = issueDescUpdatedAt.UpdateDefault.(func() time.Time)
+	policyauditFields := schema.PolicyAudit{}.Fields()
+	_ = policyauditFields
+	// policyauditDescName is the schema descriptor for name field.
+	policyauditDescName := policyauditFields[0].Descriptor()
+	// policyaudit.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	policyaudit.NameValidator = policyauditDescName.Validators[0].(func(string) error)
+	// policyauditDescCreatedAt is the schema descriptor for created_at field.
+	policyauditDescCreatedAt := policyauditFields[2].Descriptor()
+	// policyaudit.DefaultCreatedAt holds the default value on creation for the created_at field.
+	policyaudit.DefaultCreatedAt = policyauditDescCreatedAt.Default.(func() time.Time)
+	// policyauditDescUpdatedAt is the schema descriptor for updated_at field.
+	policyauditDescUpdatedAt := policyauditFields[3].Descriptor()
+	// policyaudit.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	policyaudit.DefaultUpdatedAt = policyauditDescUpdatedAt.Default.(func() time.Time)
+	// policyaudit.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	policyaudit.UpdateDefaultUpdatedAt = policyauditDescUpdatedAt.UpdateDefault.(func() time.Time)
+	policyrunFields := schema.PolicyRun{}.Fields()
+	_ = policyrunFields
+	// policyrunDescStatus is the schema descriptor for status field.
+	policyrunDescStatus := policyrunFields[1].Descriptor()
+	// policyrun.DefaultStatus holds the default value on creation for the status field.
+	policyrun.DefaultStatus = policyrunDescStatus.Default.(string)
+	// policyrunDescStartedAt is the schema descriptor for started_at field.
+	policyrunDescStartedAt := policyrunFields[3].Descriptor()
+	// policyrun.DefaultStartedAt holds the default value on creation for the started_at field.
+	policyrun.DefaultStartedAt = policyrunDescStartedAt.Default.(func() time.Time)
 	vminventoryFields := schema.VMInventory{}.Fields()
 	_ = vminventoryFields
 	// vminventoryDescName is the schema descriptor for name field.
