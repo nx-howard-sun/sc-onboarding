@@ -50,22 +50,39 @@ Request flow:
 - `description` (string)
 - `created_at`, `updated_at`
 
+### `policies`
+- `id` (int, PK)
+- `name` (string)
+- `audit_ids` (JSON array of audit IDs)
+- `created_at`, `updated_at`
+
+### `policy_runs`
+- `id` (int, PK)
+- `policy_id` (FK-like reference to policy ID)
+- `status` (`running`, `passed`, `failed`, `error`)
+- `audit_run_ids` (JSON array of child audit run IDs)
+- `started_at`, `completed_at` (nullable)
+
 ## SQL Execution Safety Assumptions (Milestone 1)
 - Only `SELECT` queries are allowed for audit SQL.
 - Single statement only (no semicolon-delimited multi-statements).
 - Query result is expected to be a single scalar value (1 row, 1 column).
 - Evaluation is type-aware based on each query's `expected_result.type`.
 
-## API Mapping (Milestone 1)
+## API Mapping (Milestone 1-4)
 - `POST /audits` -> create audit
 - `GET /audits/{id}` -> fetch audit
 - `POST /audits/{id}/run` -> asynchronous dispatch to gRPC worker
 - `GET /audits/{id}/run/{run_id}/status` -> run status/details
 - `GET /issues/list` -> paginated issue list
 - `GET /issues/{id}` -> issue details
+- `POST /policies` -> create policy with grouped audit IDs
+- `GET /policies/{id}` -> get policy definition
+- `POST /policies/{id}/run` -> start policy execution (creates child audit runs + async dispatch)
+- `GET /policies/{id}/run/{run_id}/status` -> aggregate policy status + child run details
 
 ## Extendability by Milestone
 - Milestone 2: move `queries` JSON into normalized `audit_queries` table if you need stronger query-level indexing/history.
 - Milestone 3: implemented gRPC worker for asynchronous execution.
-- Milestone 4: add `policies`, `policy_audits`, and policy run aggregate status.
+- Milestone 4: implemented `policies` + `policy_runs` and policy-level aggregate status evaluation.
 - Milestone 5: add auth middleware in transport layer and role checks per endpoint.

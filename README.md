@@ -16,10 +16,10 @@ This project uses a layered design so each part has one responsibility:
 - **Endpoint layer**: `internal/endpoint/endpoint.go`  
   go-kit adapter layer. Converts transport requests into service calls.
 - **Service layer**: `internal/service/service.go`  
-  Business logic (validation, run/evaluate audit, create issue).
+  Business logic (validation, async run dispatch, policy orchestration, issue creation).
 - **Repository layer**: `internal/repository/repository.go`  
   Data-access layer for persistence and query execution.
-  - Uses **Ent** for CRUD on our own entities (`audits`, `audit_runs`, `issues`).
+  - Uses **Ent** for CRUD on our own entities (`audits`, `audit_runs`, `issues`, `policies`, `policy_runs`).
   - Uses `database/sql` for executing the dynamic audit SQL query itself.
 - **Schema layer**: `ent/schema/*.go`  
   Table definitions; Ent generates DB/query code from these schemas.
@@ -101,10 +101,12 @@ The service auto-creates tables from Ent schemas on startup, including:
 - `audit_runs`
 - `issues`
 - `vm_inventory`
+- `policies`
+- `policy_runs`
 
 ## Run APIs Manually
 
-### Milestone 1 Endpoints
+### Audit + Issue Endpoints
 
 - `POST /audits`
 - `GET /audits/{id}`
@@ -112,6 +114,13 @@ The service auto-creates tables from Ent schemas on startup, including:
 - `GET /audits/{id}/run/{run_id}/status`
 - `GET /issues/list?page=1&page_size=20`
 - `GET /issues/{id}`
+
+### Policy Endpoints (Milestone 4)
+
+- `POST /policies`
+- `GET /policies/{id}`
+- `POST /policies/{id}/run`
+- `GET /policies/{id}/run/{run_id}/status`
 
 All responses are JSON.
 
@@ -122,6 +131,19 @@ All responses are JSON.
   - `run.status = "running"` when dispatch succeeds
   - `accepted = true`
 - Poll `GET /audits/{id}/run/{run_id}/status` until status is `passed`, `failed`, or `error`.
+
+### Milestone 4 Policy Behavior
+
+- `POST /policies/{id}/run` creates one child audit run per audit inside the policy.
+- Each child run is dispatched to the same gRPC audit worker used by Milestone 3.
+- Policy status is aggregated from child audit runs:
+  - `passed` when all child runs pass
+  - `failed` when at least one child run fails (and none error)
+  - `error` when at least one child run errors
+  - `running` while any child run is still running
+- `GET /policies/{id}/run/{run_id}/status` returns:
+  - policy run metadata (`status`, `started_at`, `completed_at`, `audit_run_ids`)
+  - expanded `audit_runs` array with child run status details
 
 ### Sample request: create audit (multi-query)
 
@@ -176,4 +198,27 @@ curl http://localhost:8080/audits/1/run/1/status
 
 ```bash
 curl "http://localhost:8080/issues/list?page=1&page_size=20"
+```
+
+### Sample request: create policy
+
+```bash
+curl -X POST http://localhost:8080/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name":"baseline_security_policy",
+    "audit_ids":[1,2]
+  }'
+```
+
+### Sample request: run policy
+
+```bash
+curl -X POST http://localhost:8080/policies/1/run
+```
+
+### Sample request: policy run status
+
+```bash
+curl http://localhost:8080/policies/1/run/1/status
 ```
