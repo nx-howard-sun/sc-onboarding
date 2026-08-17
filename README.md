@@ -6,7 +6,8 @@ Implementation using:
 - Ent (ORM + schema migration)
 - PostgreSQL
 - gRPC (async worker for audit execution)
-- JWT Authentication + Role-based Authorization (Milestone 5)
+- JWT Authentication + Role-based Authorization
+- Docker & Kubernetes Orchestration (Containerized microservices)
 
 ## Architecture
 
@@ -110,6 +111,46 @@ The service auto-creates tables from Ent schemas on startup, including:
 - `policy_runs`
 - `users`
 
+## Kubernetes Deployment
+
+### Apply and restart
+
+```bash
+# Apply all Kubernetes manifests
+kubectl apply -f k8s/
+
+# Restart deployments to pull fresh local images
+kubectl rollout restart deployment/api
+kubectl rollout restart deployment/worker
+```
+
+### Monitor startup
+
+```bash
+# Monitor cluster startup until all pods show 1/1 Running
+kubectl get pods -w
+```
+
+### Deployment endpoint
+
+Use port-forward to expose the API service locally:
+
+```bash
+kubectl port-forward svc/api-service 8080:8080
+```
+
+Once port-forward is active, your deployment endpoint is:
+- `http://localhost:8080`
+
+All API routes in this README work against that endpoint.
+
+### Access PostgreSQL in cluster
+
+```bash
+# Connect directly via psql shell inside the pod
+kubectl exec -it deployment/postgres -- psql -U postgres -d security_central
+```
+
 ## Run APIs Manually
 
 ### Auth Endpoint (Milestone 5)
@@ -131,6 +172,10 @@ The service auto-creates tables from Ent schemas on startup, including:
 - `GET /policies/{id}`
 - `POST /policies/{id}/run`
 - `GET /policies/{id}/run/{run_id}/status`
+
+### Scheduler Endpoint (Bonus Milestone)
+
+- `POST /schedule`
 
 All responses are JSON.
 
@@ -167,6 +212,17 @@ All responses are JSON.
 
 Note: passwords are base64-encoded to satisfy assignment requirements.  
 This is not secure hashing and should be replaced with a real password hash (e.g. bcrypt/argon2) in production.
+
+### Scheduler Behavior (Bonus Milestone)
+
+- `POST /schedule` creates a recurring schedule for either:
+  - `target_type = "audit"` with `target_id = <audit_id>`
+  - `target_type = "policy"` with `target_id = <policy_id>`
+- `interval_seconds` controls how often the target is executed.
+- Scheduler loop checks for due schedules periodically and triggers:
+  - `RunAudit(...)` for audit targets
+  - `RunPolicy(...)` for policy targets
+- After execution, `next_run_at` is advanced by `interval_seconds`.
 
 ### Sample request: create audit (multi-query)
 
@@ -244,6 +300,20 @@ curl -X POST http://localhost:8080/policies/1/run
 
 ```bash
 curl http://localhost:8080/policies/1/run/1/status
+```
+
+### Sample request: create schedule
+
+```bash
+TOKEN="<admin-jwt-token>"
+curl -X POST http://localhost:8080/schedule \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_type":"audit",
+    "target_id":1,
+    "interval_seconds":300
+  }'
 ```
 
 ### Sample request: login (admin)

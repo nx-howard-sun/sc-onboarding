@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: security-central-worker:latest
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: security-central-config
+        - secretRef:
+            name: security-central-secret
+        ports:
+        - containerPort: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+spec:
+  ports:
+  - port: 9090
+    targetPort: 9090
+  selector:
+    app: worker
