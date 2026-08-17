@@ -110,6 +110,12 @@ func NewHTTPHandler(e endpoint.Endpoints, logger log.Logger) http.Handler {
 		encodeResponse,
 		options...,
 	))
+	protected.Methods(http.MethodPost).Path("/schedule").Handler(httptransport.NewServer(
+		e.CreateSchedule,
+		decodeCreateScheduleRequest,
+		encodeResponse,
+		options...,
+	))
 
 	return r
 }
@@ -276,6 +282,14 @@ func decodeGetPolicyRunStatusRequest(_ context.Context, r *http.Request) (interf
 		return nil, err
 	}
 	return endpoint.GetPolicyRunStatusRequest{PolicyID: policyID, RunID: runID}, nil
+}
+
+func decodeCreateScheduleRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var req endpoint.CreateScheduleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, err
+	}
+	return req, nil
 }
 
 // ==========================================

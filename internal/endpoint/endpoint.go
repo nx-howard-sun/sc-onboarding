@@ -21,6 +21,7 @@ type Endpoints struct {
 	RunPolicy          endpoint.Endpoint
 	GetPolicyRunStatus endpoint.Endpoint
 	Login              endpoint.Endpoint
+	CreateSchedule     endpoint.Endpoint
 }
 
 type LoginRequest struct {
@@ -78,6 +79,12 @@ type GetPolicyRunStatusRequest struct {
 	RunID    int
 }
 
+type CreateScheduleRequest struct {
+	TargetType      string `json:"target_type"` // "audit" or "policy"
+	TargetID        int    `json:"target_id"`
+	IntervalSeconds int    `json:"interval_seconds"`
+}
+
 func New(svc service.Service) Endpoints {
 	return Endpoints{
 		CreateAudit:        makeCreateAuditEndpoint(svc),
@@ -91,6 +98,7 @@ func New(svc service.Service) Endpoints {
 		RunPolicy:          makeRunPolicyEndpoint(svc),
 		GetPolicyRunStatus: makeGetPolicyRunStatusEndpoint(svc),
 		Login:              makeLoginEndpoint(svc),
+		CreateSchedule:     makeCreateScheduleEndpoint(svc),
 	}
 }
 
@@ -178,5 +186,16 @@ func makeLoginEndpoint(svc service.Service) endpoint.Endpoint {
 			return LoginResponse{Error: err.Error()}, nil
 		}
 		return LoginResponse{Token: token}, nil
+	}
+}
+
+func makeCreateScheduleEndpoint(svc service.Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(CreateScheduleRequest)
+		return svc.CreateSchedule(ctx, service.CreateScheduleRequest{
+			TargetType:      req.TargetType,
+			TargetID:        req.TargetID,
+			IntervalSeconds: req.IntervalSeconds,
+		})
 	}
 }

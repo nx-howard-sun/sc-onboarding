@@ -110,6 +110,21 @@ var (
 		Columns:    PolicyRunsColumns,
 		PrimaryKey: []*schema.Column{PolicyRunsColumns[0]},
 	}
+	// SchedulesColumns holds the columns for the "schedules" table.
+	SchedulesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "target_type", Type: field.TypeString},
+		{Name: "target_id", Type: field.TypeInt},
+		{Name: "interval_seconds", Type: field.TypeInt, Default: 60},
+		{Name: "next_run_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// SchedulesTable holds the schema information for the "schedules" table.
+	SchedulesTable = &schema.Table{
+		Name:       "schedules",
+		Columns:    SchedulesColumns,
+		PrimaryKey: []*schema.Column{SchedulesColumns[0]},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -146,6 +161,7 @@ var (
 		IssuesTable,
 		PoliciesTable,
 		PolicyRunsTable,
+		SchedulesTable,
 		UsersTable,
 		VMInventoryTable,
 	}

@@ -8,6 +8,7 @@ import (
 	"security-central/ent/issue"
 	"security-central/ent/policyaudit"
 	"security-central/ent/policyrun"
+	"security-central/ent/schedule"
 	"security-central/ent/schema"
 	"security-central/ent/user"
 	"security-central/ent/vminventory"
@@ -104,6 +105,16 @@ func init() {
 	policyrunDescStartedAt := policyrunFields[3].Descriptor()
 	// policyrun.DefaultStartedAt holds the default value on creation for the started_at field.
 	policyrun.DefaultStartedAt = policyrunDescStartedAt.Default.(func() time.Time)
+	scheduleFields := schema.Schedule{}.Fields()
+	_ = scheduleFields
+	// scheduleDescIntervalSeconds is the schema descriptor for interval_seconds field.
+	scheduleDescIntervalSeconds := scheduleFields[2].Descriptor()
+	// schedule.DefaultIntervalSeconds holds the default value on creation for the interval_seconds field.
+	schedule.DefaultIntervalSeconds = scheduleDescIntervalSeconds.Default.(int)
+	// scheduleDescCreatedAt is the schema descriptor for created_at field.
+	scheduleDescCreatedAt := scheduleFields[4].Descriptor()
+	// schedule.DefaultCreatedAt holds the default value on creation for the created_at field.
+	schedule.DefaultCreatedAt = scheduleDescCreatedAt.Default.(func() time.Time)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescUsername is the schema descriptor for username field.

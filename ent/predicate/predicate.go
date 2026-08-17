@@ -21,6 +21,9 @@ type PolicyAudit func(*sql.Selector)
 // PolicyRun is the predicate function for policyrun builders.
 type PolicyRun func(*sql.Selector)
 
+// Schedule is the predicate function for schedule builders.
+type Schedule func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
 

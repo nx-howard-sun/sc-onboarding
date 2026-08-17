@@ -12,6 +12,7 @@ import (
 	"security-central/ent/issue"
 	"security-central/ent/policyaudit"
 	"security-central/ent/policyrun"
+	"security-central/ent/schedule"
 	"security-central/ent/user"
 	"security-central/internal/model"
 )
@@ -40,6 +41,11 @@ type Repository interface {
 	// User Management
 	CreateUser(ctx context.Context, username, base64Password, role string) (*model.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
+
+	// Schedule Management
+	CreateSchedule(ctx context.Context, targetType string, targetID, intervalSeconds int, nextRunAt time.Time) (*model.Schedule, error)
+	GetDueSchedules(ctx context.Context, now time.Time) ([]model.Schedule, error)
+	UpdateScheduleNextRun(ctx context.Context, id int, nextRunAt time.Time) error
 
 	// SQL Runner
 	RunScalarQuery(ctx context.Context, query string) (string, error)
@@ -257,6 +263,58 @@ func (r *EntRepository) GetUserByUsername(ctx context.Context, username string) 
 		return nil, err
 	}
 	return &model.User{ID: row.ID, Username: row.Username, Password: row.Password, Role: row.Role}, nil
+}
+
+// ==========================================
+// SCHEDULE MANAGEMENT
+// ==========================================
+
+func (r *EntRepository) CreateSchedule(ctx context.Context, targetType string, targetID, intervalSeconds int, nextRunAt time.Time) (*model.Schedule, error) {
+	row, err := r.client.Schedule.Create().
+		SetTargetType(targetType).
+		SetTargetID(targetID).
+		SetIntervalSeconds(intervalSeconds).
+		SetNextRunAt(nextRunAt).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Schedule{
+		ID:              row.ID,
+		TargetType:      row.TargetType,
+		TargetID:        row.TargetID,
+		IntervalSeconds: row.IntervalSeconds,
+		NextRunAt:       row.NextRunAt,
+		CreatedAt:       row.CreatedAt,
+	}, nil
+}
+
+func (r *EntRepository) GetDueSchedules(ctx context.Context, now time.Time) ([]model.Schedule, error) {
+	rows, err := r.client.Schedule.Query().
+		Where(schedule.NextRunAtLTE(now)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	schedules := make([]model.Schedule, len(rows))
+	for i, row := range rows {
+		schedules[i] = model.Schedule{
+			ID:              row.ID,
+			TargetType:      row.TargetType,
+			TargetID:        row.TargetID,
+			IntervalSeconds: row.IntervalSeconds,
+			NextRunAt:       row.NextRunAt,
+			CreatedAt:       row.CreatedAt,
+		}
+	}
+	return schedules, nil
+}
+
+func (r *EntRepository) UpdateScheduleNextRun(ctx context.Context, id int, nextRunAt time.Time) error {
+	return r.client.Schedule.UpdateOneID(id).
+		SetNextRunAt(nextRunAt).
+		Exec(ctx)
 }
 
 func toAudit(a *ent.Audit) *model.Audit {

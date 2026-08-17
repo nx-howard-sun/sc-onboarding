@@ -74,3 +74,12 @@ type User struct {
 	Password string `json:"-"` // Omit password from JSON serialization
 	Role     string `json:"role"`
 }
+
+type Schedule struct {
+	ID              int       `json:"id"`
+	TargetType      string    `json:"target_type"`
+	TargetID        int       `json:"target_id"`
+	IntervalSeconds int       `json:"interval_seconds"`
+	NextRunAt       time.Time `json:"next_run_at"`
+	CreatedAt       time.Time `json:"created_at"`
+}

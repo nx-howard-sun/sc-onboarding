@@ -16,6 +16,7 @@ import (
 	"security-central/ent/issue"
 	"security-central/ent/policyaudit"
 	"security-central/ent/policyrun"
+	"security-central/ent/schedule"
 	"security-central/ent/user"
 	"security-central/ent/vminventory"
 
@@ -40,6 +41,8 @@ type Client struct {
 	PolicyAudit *PolicyAuditClient
 	// PolicyRun is the client for interacting with the PolicyRun builders.
 	PolicyRun *PolicyRunClient
+	// Schedule is the client for interacting with the Schedule builders.
+	Schedule *ScheduleClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 	// VMInventory is the client for interacting with the VMInventory builders.
@@ -60,6 +63,7 @@ func (c *Client) init() {
 	c.Issue = NewIssueClient(c.config)
 	c.PolicyAudit = NewPolicyAuditClient(c.config)
 	c.PolicyRun = NewPolicyRunClient(c.config)
+	c.Schedule = NewScheduleClient(c.config)
 	c.User = NewUserClient(c.config)
 	c.VMInventory = NewVMInventoryClient(c.config)
 }
@@ -159,6 +163,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Issue:       NewIssueClient(cfg),
 		PolicyAudit: NewPolicyAuditClient(cfg),
 		PolicyRun:   NewPolicyRunClient(cfg),
+		Schedule:    NewScheduleClient(cfg),
 		User:        NewUserClient(cfg),
 		VMInventory: NewVMInventoryClient(cfg),
 	}, nil
@@ -185,6 +190,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Issue:       NewIssueClient(cfg),
 		PolicyAudit: NewPolicyAuditClient(cfg),
 		PolicyRun:   NewPolicyRunClient(cfg),
+		Schedule:    NewScheduleClient(cfg),
 		User:        NewUserClient(cfg),
 		VMInventory: NewVMInventoryClient(cfg),
 	}, nil
@@ -216,7 +222,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.User, c.VMInventory,
+		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.Schedule, c.User,
+		c.VMInventory,
 	} {
 		n.Use(hooks...)
 	}
@@ -226,7 +233,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.User, c.VMInventory,
+		c.Audit, c.AuditRun, c.Issue, c.PolicyAudit, c.PolicyRun, c.Schedule, c.User,
+		c.VMInventory,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -245,6 +253,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PolicyAudit.mutate(ctx, m)
 	case *PolicyRunMutation:
 		return c.PolicyRun.mutate(ctx, m)
+	case *ScheduleMutation:
+		return c.Schedule.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
 	case *VMInventoryMutation:
@@ -1015,6 +1025,139 @@ func (c *PolicyRunClient) mutate(ctx context.Context, m *PolicyRunMutation) (Val
 	}
 }
 
+// ScheduleClient is a client for the Schedule schema.
+type ScheduleClient struct {
+	config
+}
+
+// NewScheduleClient returns a client for the Schedule from the given config.
+func NewScheduleClient(c config) *ScheduleClient {
+	return &ScheduleClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `schedule.Hooks(f(g(h())))`.
+func (c *ScheduleClient) Use(hooks ...Hook) {
+	c.hooks.Schedule = append(c.hooks.Schedule, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `schedule.Intercept(f(g(h())))`.
+func (c *ScheduleClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Schedule = append(c.inters.Schedule, interceptors...)
+}
+
+// Create returns a builder for creating a Schedule entity.
+func (c *ScheduleClient) Create() *ScheduleCreate {
+	mutation := newScheduleMutation(c.config, OpCreate)
+	return &ScheduleCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Schedule entities.
+func (c *ScheduleClient) CreateBulk(builders ...*ScheduleCreate) *ScheduleCreateBulk {
+	return &ScheduleCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ScheduleClient) MapCreateBulk(slice any, setFunc func(*ScheduleCreate, int)) *ScheduleCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ScheduleCreateBulk{err: fmt.Errorf("calling to ScheduleClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ScheduleCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ScheduleCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Schedule.
+func (c *ScheduleClient) Update() *ScheduleUpdate {
+	mutation := newScheduleMutation(c.config, OpUpdate)
+	return &ScheduleUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ScheduleClient) UpdateOne(_m *Schedule) *ScheduleUpdateOne {
+	mutation := newScheduleMutation(c.config, OpUpdateOne, withSchedule(_m))
+	return &ScheduleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ScheduleClient) UpdateOneID(id int) *ScheduleUpdateOne {
+	mutation := newScheduleMutation(c.config, OpUpdateOne, withScheduleID(id))
+	return &ScheduleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Schedule.
+func (c *ScheduleClient) Delete() *ScheduleDelete {
+	mutation := newScheduleMutation(c.config, OpDelete)
+	return &ScheduleDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ScheduleClient) DeleteOne(_m *Schedule) *ScheduleDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ScheduleClient) DeleteOneID(id int) *ScheduleDeleteOne {
+	builder := c.Delete().Where(schedule.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ScheduleDeleteOne{builder}
+}
+
+// Query returns a query builder for Schedule.
+func (c *ScheduleClient) Query() *ScheduleQuery {
+	return &ScheduleQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSchedule},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Schedule entity by its id.
+func (c *ScheduleClient) Get(ctx context.Context, id int) (*Schedule, error) {
+	return c.Query().Where(schedule.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ScheduleClient) GetX(ctx context.Context, id int) *Schedule {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ScheduleClient) Hooks() []Hook {
+	return c.hooks.Schedule
+}
+
+// Interceptors returns the client interceptors.
+func (c *ScheduleClient) Interceptors() []Interceptor {
+	return c.inters.Schedule
+}
+
+func (c *ScheduleClient) mutate(ctx context.Context, m *ScheduleMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ScheduleCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ScheduleUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ScheduleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ScheduleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Schedule mutation op: %q", m.Op())
+	}
+}
+
 // UserClient is a client for the User schema.
 type UserClient struct {
 	config
@@ -1284,10 +1427,11 @@ func (c *VMInventoryClient) mutate(ctx context.Context, m *VMInventoryMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, User, VMInventory []ent.Hook
+		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, Schedule, User,
+		VMInventory []ent.Hook
 	}
 	inters struct {
-		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, User,
+		Audit, AuditRun, Issue, PolicyAudit, PolicyRun, Schedule, User,
 		VMInventory []ent.Interceptor
 	}
 )

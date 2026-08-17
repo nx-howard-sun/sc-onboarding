@@ -12,6 +12,7 @@ import (
 	"security-central/ent/policyaudit"
 	"security-central/ent/policyrun"
 	"security-central/ent/predicate"
+	"security-central/ent/schedule"
 	"security-central/ent/user"
 	"security-central/ent/vminventory"
 	"security-central/internal/model"
@@ -36,6 +37,7 @@ const (
 	TypeIssue       = "Issue"
 	TypePolicyAudit = "PolicyAudit"
 	TypePolicyRun   = "PolicyRun"
+	TypeSchedule    = "Schedule"
 	TypeUser        = "User"
 	TypeVMInventory = "VMInventory"
 )
@@ -3593,6 +3595,617 @@ func (m *PolicyRunMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *PolicyRunMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown PolicyRun edge %s", name)
+}
+
+// ScheduleMutation represents an operation that mutates the Schedule nodes in the graph.
+type ScheduleMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int
+	target_type         *string
+	target_id           *int
+	addtarget_id        *int
+	interval_seconds    *int
+	addinterval_seconds *int
+	next_run_at         *time.Time
+	created_at          *time.Time
+	clearedFields       map[string]struct{}
+	done                bool
+	oldValue            func(context.Context) (*Schedule, error)
+	predicates          []predicate.Schedule
+}
+
+var _ ent.Mutation = (*ScheduleMutation)(nil)
+
+// scheduleOption allows management of the mutation configuration using functional options.
+type scheduleOption func(*ScheduleMutation)
+
+// newScheduleMutation creates new mutation for the Schedule entity.
+func newScheduleMutation(c config, op Op, opts ...scheduleOption) *ScheduleMutation {
+	m := &ScheduleMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSchedule,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withScheduleID sets the ID field of the mutation.
+func withScheduleID(id int) scheduleOption {
+	return func(m *ScheduleMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Schedule
+		)
+		m.oldValue = func(ctx context.Context) (*Schedule, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Schedule.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSchedule sets the old Schedule of the mutation.
+func withSchedule(node *Schedule) scheduleOption {
+	return func(m *ScheduleMutation) {
+		m.oldValue = func(context.Context) (*Schedule, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ScheduleMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ScheduleMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ScheduleMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ScheduleMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Schedule.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTargetType sets the "target_type" field.
+func (m *ScheduleMutation) SetTargetType(s string) {
+	m.target_type = &s
+}
+
+// TargetType returns the value of the "target_type" field in the mutation.
+func (m *ScheduleMutation) TargetType() (r string, exists bool) {
+	v := m.target_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetType returns the old "target_type" field's value of the Schedule entity.
+// If the Schedule object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleMutation) OldTargetType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetType: %w", err)
+	}
+	return oldValue.TargetType, nil
+}
+
+// ResetTargetType resets all changes to the "target_type" field.
+func (m *ScheduleMutation) ResetTargetType() {
+	m.target_type = nil
+}
+
+// SetTargetID sets the "target_id" field.
+func (m *ScheduleMutation) SetTargetID(i int) {
+	m.target_id = &i
+	m.addtarget_id = nil
+}
+
+// TargetID returns the value of the "target_id" field in the mutation.
+func (m *ScheduleMutation) TargetID() (r int, exists bool) {
+	v := m.target_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetID returns the old "target_id" field's value of the Schedule entity.
+// If the Schedule object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleMutation) OldTargetID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetID: %w", err)
+	}
+	return oldValue.TargetID, nil
+}
+
+// AddTargetID adds i to the "target_id" field.
+func (m *ScheduleMutation) AddTargetID(i int) {
+	if m.addtarget_id != nil {
+		*m.addtarget_id += i
+	} else {
+		m.addtarget_id = &i
+	}
+}
+
+// AddedTargetID returns the value that was added to the "target_id" field in this mutation.
+func (m *ScheduleMutation) AddedTargetID() (r int, exists bool) {
+	v := m.addtarget_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTargetID resets all changes to the "target_id" field.
+func (m *ScheduleMutation) ResetTargetID() {
+	m.target_id = nil
+	m.addtarget_id = nil
+}
+
+// SetIntervalSeconds sets the "interval_seconds" field.
+func (m *ScheduleMutation) SetIntervalSeconds(i int) {
+	m.interval_seconds = &i
+	m.addinterval_seconds = nil
+}
+
+// IntervalSeconds returns the value of the "interval_seconds" field in the mutation.
+func (m *ScheduleMutation) IntervalSeconds() (r int, exists bool) {
+	v := m.interval_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIntervalSeconds returns the old "interval_seconds" field's value of the Schedule entity.
+// If the Schedule object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleMutation) OldIntervalSeconds(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIntervalSeconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIntervalSeconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIntervalSeconds: %w", err)
+	}
+	return oldValue.IntervalSeconds, nil
+}
+
+// AddIntervalSeconds adds i to the "interval_seconds" field.
+func (m *ScheduleMutation) AddIntervalSeconds(i int) {
+	if m.addinterval_seconds != nil {
+		*m.addinterval_seconds += i
+	} else {
+		m.addinterval_seconds = &i
+	}
+}
+
+// AddedIntervalSeconds returns the value that was added to the "interval_seconds" field in this mutation.
+func (m *ScheduleMutation) AddedIntervalSeconds() (r int, exists bool) {
+	v := m.addinterval_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetIntervalSeconds resets all changes to the "interval_seconds" field.
+func (m *ScheduleMutation) ResetIntervalSeconds() {
+	m.interval_seconds = nil
+	m.addinterval_seconds = nil
+}
+
+// SetNextRunAt sets the "next_run_at" field.
+func (m *ScheduleMutation) SetNextRunAt(t time.Time) {
+	m.next_run_at = &t
+}
+
+// NextRunAt returns the value of the "next_run_at" field in the mutation.
+func (m *ScheduleMutation) NextRunAt() (r time.Time, exists bool) {
+	v := m.next_run_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNextRunAt returns the old "next_run_at" field's value of the Schedule entity.
+// If the Schedule object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleMutation) OldNextRunAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNextRunAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNextRunAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNextRunAt: %w", err)
+	}
+	return oldValue.NextRunAt, nil
+}
+
+// ResetNextRunAt resets all changes to the "next_run_at" field.
+func (m *ScheduleMutation) ResetNextRunAt() {
+	m.next_run_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ScheduleMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ScheduleMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Schedule entity.
+// If the Schedule object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ScheduleMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the ScheduleMutation builder.
+func (m *ScheduleMutation) Where(ps ...predicate.Schedule) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ScheduleMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ScheduleMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Schedule, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ScheduleMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ScheduleMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Schedule).
+func (m *ScheduleMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ScheduleMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.target_type != nil {
+		fields = append(fields, schedule.FieldTargetType)
+	}
+	if m.target_id != nil {
+		fields = append(fields, schedule.FieldTargetID)
+	}
+	if m.interval_seconds != nil {
+		fields = append(fields, schedule.FieldIntervalSeconds)
+	}
+	if m.next_run_at != nil {
+		fields = append(fields, schedule.FieldNextRunAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, schedule.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ScheduleMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case schedule.FieldTargetType:
+		return m.TargetType()
+	case schedule.FieldTargetID:
+		return m.TargetID()
+	case schedule.FieldIntervalSeconds:
+		return m.IntervalSeconds()
+	case schedule.FieldNextRunAt:
+		return m.NextRunAt()
+	case schedule.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ScheduleMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case schedule.FieldTargetType:
+		return m.OldTargetType(ctx)
+	case schedule.FieldTargetID:
+		return m.OldTargetID(ctx)
+	case schedule.FieldIntervalSeconds:
+		return m.OldIntervalSeconds(ctx)
+	case schedule.FieldNextRunAt:
+		return m.OldNextRunAt(ctx)
+	case schedule.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Schedule field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ScheduleMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case schedule.FieldTargetType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetType(v)
+		return nil
+	case schedule.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetID(v)
+		return nil
+	case schedule.FieldIntervalSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIntervalSeconds(v)
+		return nil
+	case schedule.FieldNextRunAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNextRunAt(v)
+		return nil
+	case schedule.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Schedule field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ScheduleMutation) AddedFields() []string {
+	var fields []string
+	if m.addtarget_id != nil {
+		fields = append(fields, schedule.FieldTargetID)
+	}
+	if m.addinterval_seconds != nil {
+		fields = append(fields, schedule.FieldIntervalSeconds)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ScheduleMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case schedule.FieldTargetID:
+		return m.AddedTargetID()
+	case schedule.FieldIntervalSeconds:
+		return m.AddedIntervalSeconds()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ScheduleMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case schedule.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTargetID(v)
+		return nil
+	case schedule.FieldIntervalSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddIntervalSeconds(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Schedule numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ScheduleMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ScheduleMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ScheduleMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Schedule nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ScheduleMutation) ResetField(name string) error {
+	switch name {
+	case schedule.FieldTargetType:
+		m.ResetTargetType()
+		return nil
+	case schedule.FieldTargetID:
+		m.ResetTargetID()
+		return nil
+	case schedule.FieldIntervalSeconds:
+		m.ResetIntervalSeconds()
+		return nil
+	case schedule.FieldNextRunAt:
+		m.ResetNextRunAt()
+		return nil
+	case schedule.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Schedule field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ScheduleMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ScheduleMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ScheduleMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ScheduleMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ScheduleMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ScheduleMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ScheduleMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown Schedule unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ScheduleMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown Schedule edge %s", name)
 }
 
 // UserMutation represents an operation that mutates the User nodes in the graph.

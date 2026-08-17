@@ -71,6 +71,8 @@ func main() {
 		_ = logger.Log("error", fmt.Sprintf("failed to seed users: %v", err))
 	}
 
+	svc.StartScheduler(ctx)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

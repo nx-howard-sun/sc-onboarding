@@ -33,6 +33,8 @@ type Service interface {
 	GetPolicyRunStatus(ctx context.Context, policyID, runID int) (*model.PolicyRunDetail, error)
 	Login(ctx context.Context, username, password string) (string, error)
 	EnsureDefaultUsers(ctx context.Context) error
+	CreateSchedule(ctx context.Context, req CreateScheduleRequest) (*model.Schedule, error)
+	StartScheduler(ctx context.Context)
 }
 
 type JWTClaims struct {
@@ -70,6 +72,12 @@ type AuditExecutor interface {
 type securityCentralService struct {
 	repo     repository.Repository
 	executor AuditExecutor
+}
+
+type CreateScheduleRequest struct {
+	TargetType      string `json:"target_type"` // "audit" or "policy"
+	TargetID        int    `json:"target_id"`
+	IntervalSeconds int    `json:"interval_seconds"`
 }
 
 func New(repo repository.Repository, executor AuditExecutor) Service {
@@ -352,6 +360,56 @@ func (s *securityCentralService) Login(ctx context.Context, username, password s
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(JWTSecret)
+}
+
+func (s *securityCentralService) CreateSchedule(ctx context.Context, req CreateScheduleRequest) (*model.Schedule, error) {
+	req.TargetType = strings.ToLower(strings.TrimSpace(req.TargetType))
+	if req.TargetType != "audit" && req.TargetType != "policy" {
+		return nil, errors.New("target_type must be 'audit' or 'policy'")
+	}
+	if req.TargetID <= 0 {
+		return nil, errors.New("invalid target_id")
+	}
+	if req.IntervalSeconds <= 0 {
+		req.IntervalSeconds = 60 // Default to 60s if not specified
+	}
+
+	nextRun := time.Now().Add(time.Duration(req.IntervalSeconds) * time.Second)
+	return s.repo.CreateSchedule(ctx, req.TargetType, req.TargetID, req.IntervalSeconds, nextRun)
+}
+
+// StartScheduler runs a ticker in the background to automatically trigger scheduled runs
+func (s *securityCentralService) StartScheduler(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.processPendingSchedules(ctx)
+			}
+		}
+	}()
+}
+
+func (s *securityCentralService) processPendingSchedules(ctx context.Context) {
+	dueSchedules, err := s.repo.GetDueSchedules(ctx, time.Now())
+	if err != nil || len(dueSchedules) == 0 {
+		return
+	}
+
+	for _, sched := range dueSchedules {
+		if sched.TargetType == "audit" {
+			_, _ = s.RunAudit(ctx, sched.TargetID)
+		} else if sched.TargetType == "policy" {
+			_, _ = s.RunPolicy(ctx, sched.TargetID)
+		}
+
+		// Calculate and update the next run execution time
+		nextRun := time.Now().Add(time.Duration(sched.IntervalSeconds) * time.Second)
+		_ = s.repo.UpdateScheduleNextRun(ctx, sched.ID, nextRun)
+	}
 }
 
 // EnsureDefaultUsers seeds default admin and viewer accounts on startup if missing
